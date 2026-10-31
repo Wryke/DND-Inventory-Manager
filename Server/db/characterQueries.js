@@ -42,23 +42,51 @@ function createCharacter ({ user_id, name, max_weight }) {
 
 const updateCharacterByIdStmt = db.prepare(`
     UPDATE characters
-    SET name = ?,
-        max_weight = ?
-    WHERE character_id = ?
+    SET
+        name = COALESCE(@name, name),
+        max_weight = COALESCE(@max_weight, max_weight),
+        species_id = COALESCE(@species_id, species_id),
+        background_id = COALESCE(@background_id, background_id),
+        strength_score = COALESCE(@strength_score, strength_score),
+        dexterity_score = COALESCE(@dexterity_score, dexterity_score),
+        constitution_score = COALESCE(@constitution_score, constitution_score),
+        intelligence_score = COALESCE(@intelligence_score, intelligence_score),
+        wisdom_score = COALESCE(@wisdom_score, wisdom_score),
+        charisma_score = COALESCE(@charisma_score, charisma_score)
+    WHERE character_id = @character_id
 `)
 
-function updateCharacterById(characterId, {name, max_weight}) {
-    const result = updateCharacterByIdStmt.run(name, max_weight, characterId)
+function updateCharacterById(characterId, updates = {}) {
+    const fields = [
+        "name",
+        "max_weight",
+        "species_id",
+        "background_id",
+        "strength_score",
+        "dexterity_score",
+        "constitution_score",
+        "intelligence_score",
+        "wisdom_score",
+        "charisma_score"
+    ]
+
+    const params = { character_id: characterId }
+
+    for (const field of fields) {
+        params[field] = updates[field] ?? null
+    }
+
+    const result = updateCharacterByIdStmt.run(params)
 
     if (result.changes === 0) {
         return undefined
     }
 
-    return {
-        character_id: characterId,
-        name,
-        max_weight
-    }
+    return db.prepare(`
+        SELECT *
+        FROM characters
+        WHERE character_id = ?
+    `).get(characterId)
 }
 
 const deleteCharacterByIdStmt = db.prepare(`
