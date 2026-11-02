@@ -3,11 +3,23 @@ const db = require("./connection")
 
 // --- Character Queries ---
 
+// Shared SELECT for character rows, including species and background names
+const characterSelect = `
+    SELECT
+        c.*,
+        s.species_name,
+        b.background_name
+    FROM characters AS c
+    LEFT JOIN species_lookup AS s
+        ON c.species_id = s.species_id
+    LEFT JOIN background_lookup AS b
+        ON c.background_id = b.background_id
+`
+
 const findCharactersByUserIdStmt = db.prepare(`
-    SELECT *
-    FROM characters
-    WHERE user_id = ?
-    ORDER BY name
+    ${characterSelect}
+    WHERE c.user_id = ?
+    ORDER BY c.name
 `)
 
 function findCharactersByUserId (userId) {
@@ -15,31 +27,85 @@ function findCharactersByUserId (userId) {
 }
 
 const findCharacterByUserIdAndNameStmt = db.prepare(`
-    SELECT *
-    FROM characters
-    WHERE user_id = ? AND name = ?
+    ${characterSelect}
+    WHERE c.user_id = ? AND c.name = ?
 `)
 
 function findCharacterByUserIdAndName (userId, name) {
     return findCharacterByUserIdAndNameStmt.get(userId, name)
 }
 
-const createCharacterStmt = db.prepare(`
-    INSERT INTO characters (user_id, name, max_weight)
-    VALUES (?, ?, ?)
+const findCharacterByIdStmt = db.prepare(`
+    ${characterSelect}
+    WHERE c.character_id = ?
 `)
 
-function createCharacter ({ user_id, name, max_weight }) {
-    const result = createCharacterStmt.run(user_id, name, max_weight)
-
-    return {
-        character_id: result.lastInsertRowid,
-        user_id,
-        name,
-        max_weight
-    }
+function findCharacterById (characterId) {
+    return findCharacterByIdStmt.get(characterId)
 }
 
+// Ability scores fall back to the schema default of 10 when omitted
+const createCharacterStmt = db.prepare(`
+    INSERT INTO characters (
+        user_id,
+        name,
+        max_weight,
+        species_id,
+        background_id,
+        strength_score,
+        dexterity_score,
+        constitution_score,
+        intelligence_score,
+        wisdom_score,
+        charisma_score
+    )
+    VALUES (
+        @user_id,
+        @name,
+        @max_weight,
+        @species_id,
+        @background_id,
+        COALESCE(@strength_score, 10),
+        COALESCE(@dexterity_score, 10),
+        COALESCE(@constitution_score, 10),
+        COALESCE(@intelligence_score, 10),
+        COALESCE(@wisdom_score, 10),
+        COALESCE(@charisma_score, 10)
+    )
+`)
+
+function createCharacter ({
+    user_id,
+    name,
+    max_weight,
+    species_id = null,
+    background_id = null,
+    strength_score = null,
+    dexterity_score = null,
+    constitution_score = null,
+    intelligence_score = null,
+    wisdom_score = null,
+    charisma_score = null
+}) {
+    const result = createCharacterStmt.run({
+        user_id,
+        name,
+        max_weight,
+        species_id,
+        background_id,
+        strength_score,
+        dexterity_score,
+        constitution_score,
+        intelligence_score,
+        wisdom_score,
+        charisma_score
+    })
+
+    return findCharacterById(result.lastInsertRowid)
+}
+
+// Omitted fields keep their current value. Note: COALESCE means
+// species_id and background_id cannot currently be cleared back to NULL.
 const updateCharacterByIdStmt = db.prepare(`
     UPDATE characters
     SET
@@ -82,11 +148,7 @@ function updateCharacterById(characterId, updates = {}) {
         return undefined
     }
 
-    return db.prepare(`
-        SELECT *
-        FROM characters
-        WHERE character_id = ?
-    `).get(characterId)
+    return findCharacterById(characterId)
 }
 
 const deleteCharacterByIdStmt = db.prepare(`
@@ -114,7 +176,7 @@ const findSubclassByClassIdStmt = db.prepare(`
     SELECT *
     FROM subclass_lookup
     WHERE class_id = ?
-    ORDER BY subclass_name  
+    ORDER BY subclass_name
 `)
 
 function findSubclassByClassId (classId) {
@@ -140,10 +202,26 @@ const findCharacterClassesStmt = db.prepare(`
     LEFT JOIN subclass_lookup AS sub
         ON c.subclass_id = sub.subclass_id
     WHERE c.character_id = ?
+    ORDER BY cl.class_name
 `)
 
 function findCharacterClasses (characterId) {
     return findCharacterClassesStmt.all(characterId)
+}
+
+// Add a class (and optional subclass) to a character at a given level
+function addCharacterClass ({ character_id, class_id, subclass_id, class_level }) {
+    throw new Error("Not implemented")
+}
+
+// Change a character's level and/or subclass for a class they have
+function updateCharacterClass (characterId, classId, { subclass_id, class_level }) {
+    throw new Error("Not implemented")
+}
+
+// Remove a class from a character
+function removeCharacterClass (characterId, classId) {
+    throw new Error("Not implemented")
 }
 
 // --- Species Queries ---
@@ -197,6 +275,16 @@ function findCharacterProficiencies(characterId) {
     return findCharacterProficienciesStmt.all(characterId)
 }
 
+// Grant a proficiency to a character
+function addCharacterProficiency (characterId, proficiencyId) {
+    throw new Error("Not implemented")
+}
+
+// Remove a proficiency from a character
+function removeCharacterProficiency (characterId, proficiencyId) {
+    throw new Error("Not implemented")
+}
+
 // --- Skills Queries ---
 const findSkillsStmt = db.prepare(`
     SELECT
@@ -217,13 +305,43 @@ function findSkills () {
 }
 
 const findCharacterSkillsStmt = db.prepare(`
-    SELECT *
-    FROM character_to_skill
-    WHERE character_id = ? 
+    SELECT
+        c.character_id,
+
+        s.skill_id,
+        s.skill_index,
+        s.skill_name,
+
+        c.expertise,
+
+        a.ability_index,
+        a.ability_name
+    FROM character_to_skill AS c
+    JOIN skill_lookup AS s
+        ON c.skill_id = s.skill_id
+    JOIN ability_lookup AS a
+        ON s.ability_score_id = a.ability_score_id
+    WHERE c.character_id = ?
+    ORDER BY s.skill_name
 `)
 
 function findCharacterSkills (characterId) {
     return findCharacterSkillsStmt.all(characterId)
+}
+
+// Give a character proficiency in a skill, optionally with expertise
+function addCharacterSkill (characterId, skillId, expertise = 0) {
+    throw new Error("Not implemented")
+}
+
+// Toggle expertise on a skill a character is proficient in
+function updateCharacterSkillExpertise (characterId, skillId, expertise) {
+    throw new Error("Not implemented")
+}
+
+// Remove a skill proficiency from a character
+function removeCharacterSkill (characterId, skillId) {
+    throw new Error("Not implemented")
 }
 
 // --- Mastery Queries ---
@@ -271,21 +389,46 @@ function findCharacterWeaponMasteries (characterId) {
     return findCharacterWeaponMasteriesStmt.all(characterId)
 }
 
+// Give a character mastery of a weapon type
+function addCharacterWeaponMastery (characterId, weaponTypeId) {
+    throw new Error("Not implemented")
+}
+
+// Remove a weapon mastery from a character
+function removeCharacterWeaponMastery (characterId, weaponTypeId) {
+    throw new Error("Not implemented")
+}
+
 module.exports = {
     findCharactersByUserId,
     findCharacterByUserIdAndName,
+    findCharacterById,
     createCharacter,
     updateCharacterById,
     deleteCharacterById,
 
-    findAllClasses, 
-    findSubclassByClassId, 
-    findCharacterClasses, 
-    findAllSpecies, 
-    findAllBackgrounds, 
-    findCharacterProficiencies, 
-    findSkills, 
+    findAllClasses,
+    findSubclassByClassId,
+    findCharacterClasses,
+    addCharacterClass,
+    updateCharacterClass,
+    removeCharacterClass,
+
+    findAllSpecies,
+    findAllBackgrounds,
+
+    findCharacterProficiencies,
+    addCharacterProficiency,
+    removeCharacterProficiency,
+
+    findSkills,
     findCharacterSkills,
+    addCharacterSkill,
+    updateCharacterSkillExpertise,
+    removeCharacterSkill,
+
     findAllWeaponMasteries,
-    findCharacterWeaponMasteries
+    findCharacterWeaponMasteries,
+    addCharacterWeaponMastery,
+    removeCharacterWeaponMastery
 }
