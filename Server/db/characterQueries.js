@@ -209,9 +209,16 @@ function findCharacterClasses (characterId) {
     return findCharacterClassesStmt.all(characterId)
 }
 
+const addCharacterClassStmt = db.prepare(`
+    INSERT INTO character_to_class (character_id, class_id, subclass_id, class_level)
+    VALUES (@character_id, @class_id, @subclass_id, @class_level)
+`)
+
 // Add a class (and optional subclass) to a character at a given level
-function addCharacterClass ({ character_id, class_id, subclass_id, class_level }) {
-    throw new Error("Not implemented")
+function addCharacterClass ({ character_id, class_id, subclass_id = null, class_level }) {
+    addCharacterClassStmt.run({ character_id, class_id, subclass_id, class_level })
+
+    return findCharacterClasses(character_id)
 }
 
 // Change a character's level and/or subclass for a class they have

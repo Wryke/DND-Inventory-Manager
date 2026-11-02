@@ -14,6 +14,7 @@ const {
     findAllClasses,
     findSubclassByClassId,
     findCharacterClasses,
+    addCharacterClass,
     findAllSpecies,
     findAllBackgrounds,
     findCharacterProficiencies,
@@ -520,13 +521,118 @@ describe("Character Reference and Relationship Queries", () => {
 })
 
 
-// Stubbed queries that still need implementations
+// Write queries run against a fresh character so seeded data is untouched.
+// Remaining test.todo entries are for stubbed queries.
 describe("Character Relationship Write Queries", () => {
+    let testUser
+    let testCharacter
+
+    beforeEach(() => {
+        const uniqueSuffix =
+            `${Date.now()}_${Math.random().toString(16).slice(2)}`
+
+        testUser = createUser({
+            username: `WriteTestUser_${uniqueSuffix}`,
+            email: `writetest_${uniqueSuffix}@example.com`,
+            passwordHash: `test-hash-${uniqueSuffix}`
+        })
+
+        testCharacter = createCharacter({
+            user_id: testUser.user_id,
+            name: `WriteTestCharacter_${uniqueSuffix}`,
+            max_weight: 100
+        })
+    })
+
+    afterEach(() => {
+        deleteUserById(testUser.user_id)
+    })
+
     describe("addCharacterClass", () => {
-        test.todo("adds a class with a subclass and level")
-        test.todo("adds a class without a subclass")
-        test.todo("rejects a subclass that belongs to a different class")
-        test.todo("rejects a duplicate class for the same character")
+        test("adds a class with a subclass and level", () => {
+            const classes = addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                subclass_id: 18,
+                class_level: 3
+            })
+
+            expect(classes).toEqual([
+                expect.objectContaining({
+                    character_id: testCharacter.character_id,
+                    class_id: 5,
+                    class_name: "Fighter",
+                    subclass_id: 18,
+                    subclass_name: "Champion",
+                    class_level: 3
+                })
+            ])
+        })
+
+        test("adds a class without a subclass", () => {
+            const classes = addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 9,
+                class_level: 1
+            })
+
+            expect(classes).toEqual([
+                expect.objectContaining({
+                    class_id: 9,
+                    class_name: "Rogue",
+                    subclass_id: null,
+                    class_level: 1
+                })
+            ])
+        })
+
+        test("returns every class for a multiclassed character", () => {
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                class_level: 2
+            })
+
+            const classes = addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 9,
+                class_level: 1
+            })
+
+            expect(classes.map(c => c.class_name)).toEqual(["Fighter", "Rogue"])
+        })
+
+        test("rejects a subclass that belongs to a different class", () => {
+            // Oath of Devotion (25) is a Paladin subclass, not Fighter
+            expect(() => addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                subclass_id: 25,
+                class_level: 3
+            })).toThrow("FOREIGN KEY constraint failed")
+        })
+
+        test("rejects a duplicate class for the same character", () => {
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                class_level: 1
+            })
+
+            expect(() => addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                class_level: 2
+            })).toThrow("UNIQUE constraint failed")
+        })
+
+        test("rejects a level outside 1-20", () => {
+            expect(() => addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                class_level: 21
+            })).toThrow("CHECK constraint failed")
+        })
     })
 
     describe("updateCharacterClass", () => {
