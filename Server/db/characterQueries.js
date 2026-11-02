@@ -377,19 +377,46 @@ function findCharacterSkills (characterId) {
     return findCharacterSkillsStmt.all(characterId)
 }
 
+const addCharacterSkillStmt = db.prepare(`
+    INSERT INTO character_to_skill (character_id, skill_id, expertise)
+    VALUES (?, ?, ?)
+`)
+
 // Give a character proficiency in a skill, optionally with expertise
 function addCharacterSkill (characterId, skillId, expertise = 0) {
-    throw new Error("Not implemented")
+    addCharacterSkillStmt.run(characterId, skillId, expertise)
+
+    return findCharacterSkills(characterId)
 }
+
+const updateCharacterSkillExpertiseStmt = db.prepare(`
+    UPDATE character_to_skill
+    SET expertise = ?
+    WHERE character_id = ?
+    AND skill_id = ?
+`)
 
 // Toggle expertise on a skill a character is proficient in
 function updateCharacterSkillExpertise (characterId, skillId, expertise) {
-    throw new Error("Not implemented")
+    const result = updateCharacterSkillExpertiseStmt.run(expertise, characterId, skillId)
+
+    if (result.changes === 0) {
+        return undefined
+    }
+
+    return findCharacterSkills(characterId)
 }
+
+const removeCharacterSkillStmt = db.prepare(`
+    DELETE FROM character_to_skill
+    WHERE character_id = ?
+    AND skill_id = ?
+`)
 
 // Remove a skill proficiency from a character
 function removeCharacterSkill (characterId, skillId) {
-    throw new Error("Not implemented")
+    const result = removeCharacterSkillStmt.run(characterId, skillId)
+    return result.changes === 1
 }
 
 // --- Mastery Queries ---

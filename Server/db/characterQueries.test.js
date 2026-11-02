@@ -15,6 +15,9 @@ const {
     findSubclassByClassId,
     findCharacterClasses,
     addCharacterClass,
+    addCharacterSkill,
+    updateCharacterSkillExpertise,
+    removeCharacterSkill,
     findAllSpecies,
     findAllBackgrounds,
     findCharacterProficiencies,
@@ -655,16 +658,98 @@ describe("Character Relationship Write Queries", () => {
     })
 
     describe("addCharacterSkill", () => {
-        test.todo("adds a skill without expertise by default")
-        test.todo("adds a skill with expertise")
+        test("adds a skill without expertise by default", () => {
+            const skills = addCharacterSkill(testCharacter.character_id, 4)
+
+            expect(skills).toEqual([
+                expect.objectContaining({
+                    character_id: testCharacter.character_id,
+                    skill_id: 4,
+                    skill_name: "Athletics",
+                    expertise: 0,
+                    ability_index: "str"
+                })
+            ])
+        })
+
+        test("adds a skill with expertise", () => {
+            const skills = addCharacterSkill(testCharacter.character_id, 17, 1)
+
+            expect(skills).toEqual([
+                expect.objectContaining({
+                    skill_id: 17,
+                    skill_name: "Stealth",
+                    expertise: 1
+                })
+            ])
+        })
+
+        test("returns every skill alphabetically", () => {
+            addCharacterSkill(testCharacter.character_id, 17)
+            const skills = addCharacterSkill(testCharacter.character_id, 4)
+
+            expect(skills.map(s => s.skill_name)).toEqual(["Athletics", "Stealth"])
+        })
+
+        test("rejects a duplicate skill", () => {
+            addCharacterSkill(testCharacter.character_id, 4)
+
+            expect(() => addCharacterSkill(testCharacter.character_id, 4))
+                .toThrow("UNIQUE constraint failed")
+        })
+
+        test("rejects a nonexistent skill", () => {
+            expect(() => addCharacterSkill(testCharacter.character_id, 999999))
+                .toThrow("FOREIGN KEY constraint failed")
+        })
+
+        test("rejects an expertise value other than 0 or 1", () => {
+            expect(() => addCharacterSkill(testCharacter.character_id, 4, 2))
+                .toThrow("CHECK constraint failed")
+        })
     })
 
     describe("updateCharacterSkillExpertise", () => {
-        test.todo("toggles expertise on an existing skill")
+        test("toggles expertise on an existing skill", () => {
+            addCharacterSkill(testCharacter.character_id, 17)
+
+            const withExpertise =
+                updateCharacterSkillExpertise(testCharacter.character_id, 17, 1)
+
+            expect(withExpertise).toEqual([
+                expect.objectContaining({ skill_id: 17, expertise: 1 })
+            ])
+
+            const withoutExpertise =
+                updateCharacterSkillExpertise(testCharacter.character_id, 17, 0)
+
+            expect(withoutExpertise).toEqual([
+                expect.objectContaining({ skill_id: 17, expertise: 0 })
+            ])
+        })
+
+        test("returns undefined for a skill the character does not have", () => {
+            expect(
+                updateCharacterSkillExpertise(testCharacter.character_id, 17, 1)
+            ).toBeUndefined()
+        })
     })
 
     describe("removeCharacterSkill", () => {
-        test.todo("removes a skill")
+        test("removes a skill", () => {
+            addCharacterSkill(testCharacter.character_id, 4)
+            addCharacterSkill(testCharacter.character_id, 17)
+
+            expect(removeCharacterSkill(testCharacter.character_id, 4)).toBe(true)
+
+            expect(findCharacterSkills(testCharacter.character_id)).toEqual([
+                expect.objectContaining({ skill_id: 17 })
+            ])
+        })
+
+        test("returns false for a skill the character does not have", () => {
+            expect(removeCharacterSkill(testCharacter.character_id, 4)).toBe(false)
+        })
     })
 
     describe("addCharacterWeaponMastery", () => {
