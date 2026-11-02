@@ -2,19 +2,19 @@ const express = require("express")
 const router = express.Router()
 
 const requireAuth = require("../middleware/requireAuth")
+const loadCharacter = require("../middleware/loadCharacter")
 
-const { 
+const {
     findUserById
  } = require("../db/userQueries.js")
 
  const {
     findCharactersByUserId,
-    findCharacterByUserIdAndName,
     createCharacter,
     updateCharacterById,
     deleteCharacterById
  } = require("../db/characterQueries.js")
- 
+
 // --- Character Routes ---
 // GET /characters/ - Return all characters owned by a user
 // GET /characters/:name - Return a character by name
@@ -22,6 +22,77 @@ const {
 // PATCH /characters/:name - Update a character
 // DELETE /characters/:name - Delete a character
 // --- ---------------- ---
+
+// Optional character fields accepted by POST and PATCH
+const lookupFields = ["species_id", "background_id"]
+
+const abilityScoreFields = [
+    "strength_score",
+    "dexterity_score",
+    "constitution_score",
+    "intelligence_score",
+    "wisdom_score",
+    "charisma_score"
+]
+
+// Return an error message for any invalid optional field, or null
+function validateOptionalFields(body) {
+    for (const field of lookupFields) {
+        if (body[field] !== undefined && (!Number.isInteger(body[field]) || body[field] <= 0)) {
+            return `${field} must be a positive integer`
+        }
+    }
+
+    for (const field of abilityScoreFields) {
+        if (body[field] !== undefined && (!Number.isInteger(body[field]) || body[field] <= 0)) {
+            return `${field} must be a positive integer`
+        }
+    }
+
+    return null
+}
+
+function isValidMaxWeight(maxWeight) {
+    return typeof maxWeight === "number" && Number.isFinite(maxWeight) && maxWeight > 0
+}
+
+// Copy only the optional fields that were supplied
+function pickOptionalFields(body) {
+    const fields = {}
+
+    for (const field of [...lookupFields, ...abilityScoreFields]) {
+        if (body[field] !== undefined) {
+            fields[field] = body[field]
+        }
+    }
+
+    return fields
+}
+
+// Map database constraint errors from character writes to responses
+function handleCharacterWriteError(error, res) {
+    if (error.message.includes("UNIQUE constraint failed")) {
+        return res.status(409).json({
+            error: "This user already has a character with that name"
+        })
+    }
+
+    if (error.message.includes("FOREIGN KEY constraint failed")) {
+        return res.status(400).json({
+            error: "Species or background not found"
+        })
+    }
+
+    if (error.message.includes("CHECK constraint failed")) {
+        return res.status(400).json({
+            error: "One or more character fields are out of range"
+        })
+    }
+
+    return res.status(500).json({
+        error: "Internal server error"
+    })
+}
 
 // --- Character Routes ---
 
@@ -44,38 +115,8 @@ router.get("/", requireAuth, (req, res) => {
 })
 
 // GET /characters/:name - Return a character by name
-router.get("/:name", requireAuth, (req, res) => {
-
-    const userId = req.session.userId
-
-    const user = findUserById(userId)
-
-    if (!user) {
-        return res.status(404).json({
-            error: "User not found"
-        })
-    }
-
-    const name = req.params.name
-
-    if (
-        typeof name !== "string" ||
-        name.trim().length === 0
-    ) {
-        return res.status(400).json({
-            error: "Invalid character name"
-        })
-    }
-
-    const character = findCharacterByUserIdAndName(userId, name.trim())
-
-    if(!character){
-        return res.status(404).json({
-            error: "Character not found"
-        })
-    }
-
-    return res.status(200).json(character)
+router.get("/:name", requireAuth, loadCharacter, (req, res) => {
+    return res.status(200).json(req.character)
 })
 
 // POST /characters/ - Create a character for a user
@@ -96,11 +137,18 @@ router.post("/", requireAuth, (req, res) => {
     if (
         typeof name !== "string" ||
         name.trim().length === 0 ||
-        typeof max_weight !== "number" ||
-        max_weight <= 0
+        !isValidMaxWeight(max_weight)
     ) {
         return res.status(400).json({
             error: "Name and a positive max weight are required"
+        })
+    }
+
+    const fieldError = validateOptionalFields(req.body)
+
+    if (fieldError) {
+        return res.status(400).json({
+            error: fieldError
         })
     }
 
@@ -108,61 +156,27 @@ router.post("/", requireAuth, (req, res) => {
         const character = createCharacter({
             user_id: userId,
             name: name.trim(),
-            max_weight
+            max_weight,
+            ...pickOptionalFields(req.body)
         })
 
         return res.status(201).json(character)
     }
     catch (error) {
-        if (error.message.includes("UNIQUE constraint failed")) {
-            return res.status(409).json({
-                error: "This user already has a character with that name"
-            })
-        }
-
-        return res.status(500).json({
-            error: "Internal server error"
-        })
+        return handleCharacterWriteError(error, res)
     }
 })
 
 // PATCH /characters/:name - Update a character
-router.patch("/:name", requireAuth, (req, res) => {
-    
-    const userId = req.session.userId
+router.patch("/:name", requireAuth, loadCharacter, (req, res) => {
 
-    const user = findUserById(userId)
-
-    if (!user) {
-        return res.status(404).json({
-            error: "User not found"
-        })
-    }
-
-    const currentName = req.params.name
     const { name: newName, max_weight } = req.body
-
-    if (
-        typeof currentName !== "string" ||
-        currentName.trim().length === 0
-    ) {
-        return res.status(400).json({
-            error: "Invalid character name"
-        })
-    }
-
-    const character = findCharacterByUserIdAndName(userId, currentName.trim())
-
-    if (!character) {
-        return res.status(404).json({
-            error: "Character not found"
-        })
-    }
 
     const hasName = newName !== undefined
     const hasMaxWeight = max_weight !== undefined
+    const optionalFields = pickOptionalFields(req.body)
 
-    if (!hasName && !hasMaxWeight) {
+    if (!hasName && !hasMaxWeight && Object.keys(optionalFields).length === 0) {
         return res.status(400).json({
             error: "At least one field must be provided"
         })
@@ -174,18 +188,28 @@ router.patch("/:name", requireAuth, (req, res) => {
         })
     }
 
-    if (hasMaxWeight && (!Number.isInteger(max_weight) || max_weight <= 0)) {
+    if (hasMaxWeight && !isValidMaxWeight(max_weight)) {
         return res.status(400).json({
             error: "Max weight must be a positive number"
         })
     }
 
+    const fieldError = validateOptionalFields(req.body)
+
+    if (fieldError) {
+        return res.status(400).json({
+            error: fieldError
+        })
+    }
+
     try {
+        // Omitted fields keep their current value in updateCharacterById
         const updated = updateCharacterById(
-            character.character_id,
+            req.character.character_id,
             {
-                name: hasName ? newName.trim() : character.name,
-                max_weight: hasMaxWeight ? max_weight : character.max_weight 
+                name: hasName ? newName.trim() : undefined,
+                max_weight,
+                ...optionalFields
             })
 
         if (!updated) {
@@ -197,51 +221,14 @@ router.patch("/:name", requireAuth, (req, res) => {
         return res.status(200).json(updated)
     }
     catch (error) {
-        if (error.message.includes("UNIQUE constraint failed")) {
-            return res.status(409).json({
-                error: "This user already has a character with that name"
-            })
-        }
-
-        return res.status(500).json({
-            error: "Internal server error"
-        })
+        return handleCharacterWriteError(error, res)
     }
 })
 
 // DELETE /characters/:name - Delete a character
-router.delete("/:name", requireAuth, (req,res) => {
+router.delete("/:name", requireAuth, loadCharacter, (req,res) => {
 
-    const userId = req.session.userId
-
-    const user = findUserById(userId)
-
-    if (!user) {
-        return res.status(404).json({
-            error: "User not found"
-        })
-    }
-
-    const name = req.params.name
-
-    if (
-        typeof name !== "string" ||
-        name.trim().length === 0
-    ) {
-        return res.status(400).json({
-            error: "A valid character name is required"
-        })
-    }
-
-    const character = findCharacterByUserIdAndName(userId, name)
-
-    if (!character) {
-        return res.status(404).json({
-            error: "Character not found"
-        });
-    }
-
-    const deleted = deleteCharacterById(character.character_id)
+    const deleted = deleteCharacterById(req.character.character_id)
 
     if (!deleted) {
         return res.status(404).json({

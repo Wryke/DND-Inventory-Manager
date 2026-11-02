@@ -341,6 +341,74 @@ describe("Character Routes", () => {
         })
 
 
+        test("accepts a decimal max weight", async () => {
+            const response = await agent
+                .post("/characters")
+                .send({
+                    name: `DecimalWeight_${Date.now()}`,
+                    max_weight: 120.5
+                })
+
+            expect(response.status).toBe(201)
+            expect(response.body.max_weight).toBe(120.5)
+        })
+
+
+        test("creates a character with species, background, and ability scores", async () => {
+            const response = await agent
+                .post("/characters")
+                .send({
+                    name: `DetailedCharacter_${Date.now()}`,
+                    max_weight: 150,
+                    species_id: 8,
+                    background_id: 15,
+                    strength_score: 16,
+                    wisdom_score: 12
+                })
+
+            expect(response.status).toBe(201)
+            expect(response.body).toMatchObject({
+                species_name: "Human",
+                background_name: "Soldier",
+                strength_score: 16,
+                dexterity_score: 10,
+                wisdom_score: 12
+            })
+        })
+
+
+        test("rejects an invalid ability score", async () => {
+            const response = await agent
+                .post("/characters")
+                .send({
+                    name: `BadScore_${Date.now()}`,
+                    max_weight: 100,
+                    strength_score: 0
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body.error).toBe(
+                "strength_score must be a positive integer"
+            )
+        })
+
+
+        test("returns 400 for a species that does not exist", async () => {
+            const response = await agent
+                .post("/characters")
+                .send({
+                    name: `BadSpecies_${Date.now()}`,
+                    max_weight: 100,
+                    species_id: 999999
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body.error).toBe(
+                "Species or background not found"
+            )
+        })
+
+
         test("allows different users to use the same character name", async () => {
             const uniqueSuffix =
                 `${Date.now()}_${Math.random().toString(16).slice(2)}`
@@ -457,6 +525,73 @@ describe("Character Routes", () => {
         })
 
 
+        test("updates species, background, and ability scores", async () => {
+            const response = await agent
+                .patch(
+                    `/characters/${encodeURIComponent(testCharacter.name)}`
+                )
+                .send({
+                    species_id: 4,
+                    background_id: 4,
+                    dexterity_score: 17
+                })
+
+            expect(response.status).toBe(200)
+            expect(response.body).toMatchObject({
+                name: testCharacter.name,
+                max_weight: testCharacter.max_weight,
+                species_name: "Elf",
+                background_name: "Criminal",
+                dexterity_score: 17,
+                strength_score: 10
+            })
+        })
+
+
+        test("accepts a decimal max weight", async () => {
+            const response = await agent
+                .patch(
+                    `/characters/${encodeURIComponent(testCharacter.name)}`
+                )
+                .send({
+                    max_weight: 99.5
+                })
+
+            expect(response.status).toBe(200)
+            expect(response.body.max_weight).toBe(99.5)
+        })
+
+
+        test("rejects an empty update", async () => {
+            const response = await agent
+                .patch(
+                    `/characters/${encodeURIComponent(testCharacter.name)}`
+                )
+                .send({})
+
+            expect(response.status).toBe(400)
+            expect(response.body.error).toBe(
+                "At least one field must be provided"
+            )
+        })
+
+
+        test("returns 400 for a background that does not exist", async () => {
+            const response = await agent
+                .patch(
+                    `/characters/${encodeURIComponent(testCharacter.name)}`
+                )
+                .send({
+                    background_id: 999999
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body.error).toBe(
+                "Species or background not found"
+            )
+        })
+
+
         test("returns 404 for a missing character", async () => {
             const response = await agent
                 .patch("/characters/CharacterThatDoesNotExist")
@@ -561,6 +696,16 @@ describe("Character Routes", () => {
             `).get(testCharacter.character_id)
 
             expect(storedCharacter).toBeUndefined()
+        })
+
+
+        test("trims the character name before deleting", async () => {
+            const response = await agent
+                .delete(
+                    `/characters/${encodeURIComponent(` ${testCharacter.name} `)}`
+                )
+
+            expect(response.status).toBe(200)
         })
 
 
