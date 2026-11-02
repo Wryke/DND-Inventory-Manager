@@ -15,9 +15,15 @@ const {
     findSubclassByClassId,
     findCharacterClasses,
     addCharacterClass,
+    updateCharacterClass,
+    removeCharacterClass,
+    addCharacterProficiency,
+    removeCharacterProficiency,
     addCharacterSkill,
     updateCharacterSkillExpertise,
     removeCharacterSkill,
+    addCharacterWeaponMastery,
+    removeCharacterWeaponMastery,
     findAllSpecies,
     findAllBackgrounds,
     findCharacterProficiencies,
@@ -525,7 +531,6 @@ describe("Character Reference and Relationship Queries", () => {
 
 
 // Write queries run against a fresh character so seeded data is untouched.
-// Remaining test.todo entries are for stubbed queries.
 describe("Character Relationship Write Queries", () => {
     let testUser
     let testCharacter
@@ -639,22 +644,202 @@ describe("Character Relationship Write Queries", () => {
     })
 
     describe("updateCharacterClass", () => {
-        test.todo("updates a class level")
-        test.todo("sets a subclass on an existing class")
+        test("updates a class level without changing the subclass", () => {
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                subclass_id: 18,
+                class_level: 3
+            })
+
+            const classes = updateCharacterClass(
+                testCharacter.character_id,
+                5,
+                { class_level: 4 }
+            )
+
+            expect(classes).toEqual([
+                expect.objectContaining({
+                    class_id: 5,
+                    subclass_id: 18,
+                    subclass_name: "Champion",
+                    class_level: 4
+                })
+            ])
+        })
+
+        test("sets a subclass on an existing class", () => {
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                class_level: 3
+            })
+
+            const classes = updateCharacterClass(
+                testCharacter.character_id,
+                5,
+                { subclass_id: 18 }
+            )
+
+            expect(classes).toEqual([
+                expect.objectContaining({
+                    class_id: 5,
+                    subclass_id: 18,
+                    subclass_name: "Champion",
+                    class_level: 3
+                })
+            ])
+        })
+
+        test("only updates the targeted class", () => {
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                class_level: 2
+            })
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 9,
+                class_level: 1
+            })
+
+            const classes = updateCharacterClass(
+                testCharacter.character_id,
+                9,
+                { class_level: 2 }
+            )
+
+            expect(classes).toEqual([
+                expect.objectContaining({ class_id: 5, class_level: 2 }),
+                expect.objectContaining({ class_id: 9, class_level: 2 })
+            ])
+        })
+
+        test("returns undefined for a class the character does not have", () => {
+            expect(
+                updateCharacterClass(testCharacter.character_id, 5, { class_level: 2 })
+            ).toBeUndefined()
+        })
+
+        test("rejects a subclass that belongs to a different class", () => {
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                class_level: 3
+            })
+
+            // Oath of Devotion (25) is a Paladin subclass, not Fighter
+            expect(() => updateCharacterClass(
+                testCharacter.character_id,
+                5,
+                { subclass_id: 25 }
+            )).toThrow("FOREIGN KEY constraint failed")
+        })
+
+        test("rejects a level outside 1-20", () => {
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                class_level: 3
+            })
+
+            expect(() => updateCharacterClass(
+                testCharacter.character_id,
+                5,
+                { class_level: 0 }
+            )).toThrow("CHECK constraint failed")
+        })
     })
 
     describe("removeCharacterClass", () => {
-        test.todo("removes a class from a character")
-        test.todo("returns false for a class the character does not have")
+        test("removes a class from a character", () => {
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                class_level: 2
+            })
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 9,
+                class_level: 1
+            })
+
+            expect(removeCharacterClass(testCharacter.character_id, 5)).toBe(true)
+
+            expect(findCharacterClasses(testCharacter.character_id)).toEqual([
+                expect.objectContaining({ class_id: 9 })
+            ])
+        })
+
+        test("returns false for a class the character does not have", () => {
+            expect(removeCharacterClass(testCharacter.character_id, 5)).toBe(false)
+        })
     })
 
     describe("addCharacterProficiency", () => {
-        test.todo("grants a proficiency")
-        test.todo("rejects a duplicate proficiency")
+        test("grants a proficiency", () => {
+            const proficiencies =
+                addCharacterProficiency(testCharacter.character_id, 7)
+
+            expect(proficiencies).toEqual([
+                expect.objectContaining({
+                    character_id: testCharacter.character_id,
+                    proficiency_id: 7,
+                    proficiency_index: "martial-weapons",
+                    type_index: "weapon",
+                    ability_index: null
+                })
+            ])
+        })
+
+        test("rejects a duplicate proficiency", () => {
+            addCharacterProficiency(testCharacter.character_id, 7)
+
+            expect(() => addCharacterProficiency(testCharacter.character_id, 7))
+                .toThrow("UNIQUE constraint failed")
+        })
+
+        test("rejects a nonexistent proficiency", () => {
+            expect(() => addCharacterProficiency(testCharacter.character_id, 999999))
+                .toThrow("FOREIGN KEY constraint failed")
+        })
     })
 
     describe("removeCharacterProficiency", () => {
-        test.todo("removes a proficiency")
+        test("removes a proficiency", () => {
+            addCharacterProficiency(testCharacter.character_id, 7)
+            addCharacterProficiency(testCharacter.character_id, 58)
+
+            expect(
+                removeCharacterProficiency(testCharacter.character_id, 7)
+            ).toBe(true)
+
+            expect(findCharacterProficiencies(testCharacter.character_id)).toEqual([
+                expect.objectContaining({ proficiency_id: 58 })
+            ])
+        })
+
+        test("does not remove a class with the same id", () => {
+            // Paladin's class_id and Martial Weapons' proficiency_id are both 7
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 7,
+                class_level: 1
+            })
+            addCharacterProficiency(testCharacter.character_id, 7)
+
+            removeCharacterProficiency(testCharacter.character_id, 7)
+
+            expect(findCharacterClasses(testCharacter.character_id)).toEqual([
+                expect.objectContaining({ class_id: 7 })
+            ])
+        })
+
+        test("returns false for a proficiency the character does not have", () => {
+            expect(
+                removeCharacterProficiency(testCharacter.character_id, 7)
+            ).toBe(false)
+        })
     })
 
     describe("addCharacterSkill", () => {
@@ -753,11 +938,61 @@ describe("Character Relationship Write Queries", () => {
     })
 
     describe("addCharacterWeaponMastery", () => {
-        test.todo("adds a weapon mastery")
-        test.todo("rejects a duplicate weapon mastery")
+        test("adds a weapon mastery", () => {
+            const masteries =
+                addCharacterWeaponMastery(testCharacter.character_id, 22)
+
+            expect(masteries).toEqual([
+                expect.objectContaining({
+                    character_id: testCharacter.character_id,
+                    weapon_type_id: 22,
+                    weapon_type_name: "Longsword",
+                    weapon_category: "martial",
+                    mastery_name: "Sap"
+                })
+            ])
+        })
+
+        test("returns every mastery alphabetically", () => {
+            addCharacterWeaponMastery(testCharacter.character_id, 22)
+            const masteries =
+                addCharacterWeaponMastery(testCharacter.character_id, 2)
+
+            expect(masteries.map(m => m.weapon_type_name))
+                .toEqual(["Dagger", "Longsword"])
+        })
+
+        test("rejects a duplicate weapon mastery", () => {
+            addCharacterWeaponMastery(testCharacter.character_id, 22)
+
+            expect(() => addCharacterWeaponMastery(testCharacter.character_id, 22))
+                .toThrow("UNIQUE constraint failed")
+        })
+
+        test("rejects a nonexistent weapon type", () => {
+            expect(() => addCharacterWeaponMastery(testCharacter.character_id, 999999))
+                .toThrow("FOREIGN KEY constraint failed")
+        })
     })
 
     describe("removeCharacterWeaponMastery", () => {
-        test.todo("removes a weapon mastery")
+        test("removes a weapon mastery", () => {
+            addCharacterWeaponMastery(testCharacter.character_id, 22)
+            addCharacterWeaponMastery(testCharacter.character_id, 2)
+
+            expect(
+                removeCharacterWeaponMastery(testCharacter.character_id, 22)
+            ).toBe(true)
+
+            expect(findCharacterWeaponMasteries(testCharacter.character_id)).toEqual([
+                expect.objectContaining({ weapon_type_id: 2 })
+            ])
+        })
+
+        test("returns false for a mastery the character does not have", () => {
+            expect(
+                removeCharacterWeaponMastery(testCharacter.character_id, 22)
+            ).toBe(false)
+        })
     })
 })

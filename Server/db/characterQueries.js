@@ -458,20 +458,35 @@ const findCharacterWeaponMasteriesStmt = db.prepare(`
     JOIN weapon_mastery_lookup AS m
         ON w.mastery_id = m.mastery_id
     WHERE c.character_id = ?
+    ORDER BY w.weapon_type_name
 `)
 
 function findCharacterWeaponMasteries (characterId) {
     return findCharacterWeaponMasteriesStmt.all(characterId)
 }
 
+const addCharacterWeaponMasteryStmt = db.prepare(`
+    INSERT INTO character_to_weapon_mastery (character_id, weapon_type_id)
+    VALUES (?, ?)
+`)
+
 // Give a character mastery of a weapon type
 function addCharacterWeaponMastery (characterId, weaponTypeId) {
-    throw new Error("Not implemented")
+    addCharacterWeaponMasteryStmt.run(characterId, weaponTypeId)
+
+    return findCharacterWeaponMasteries(characterId)
 }
+
+const removeCharacterWeaponMasteryStmt = db.prepare(`
+    DELETE FROM character_to_weapon_mastery
+    WHERE character_id = ?
+    AND weapon_type_id = ?
+`)
 
 // Remove a weapon mastery from a character
 function removeCharacterWeaponMastery (characterId, weaponTypeId) {
-    throw new Error("Not implemented")
+    const result = removeCharacterWeaponMasteryStmt.run(characterId, weaponTypeId)
+    return result.changes === 1
 }
 
 module.exports = {
