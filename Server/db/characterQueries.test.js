@@ -7,6 +7,7 @@ const {
 const {
     findCharactersByUserId,
     findCharacterByUserIdAndName,
+    findCharacterById,
     createCharacter,
     updateCharacterById,
     deleteCharacterById,
@@ -187,6 +188,55 @@ describe("Database Character Queries", () => {
             expect(storedCharacter).toBeDefined()
             expect(storedCharacter.character_id).toBe(character.character_id)
         })
+
+        test("defaults ability scores to 10 and species/background to null", () => {
+            expect(testCharacter).toMatchObject({
+                species_id: null,
+                species_name: null,
+                background_id: null,
+                background_name: null,
+                strength_score: 10,
+                dexterity_score: 10,
+                constitution_score: 10,
+                intelligence_score: 10,
+                wisdom_score: 10,
+                charisma_score: 10
+            })
+        })
+
+        test("creates a character with species, background, and ability scores", () => {
+            const character = createCharacter({
+                user_id: testUser.user_id,
+                name: `DetailedCharacter_${Date.now()}`,
+                max_weight: 150,
+                species_id: 4,
+                background_id: 4,
+                dexterity_score: 17,
+                intelligence_score: 13
+            })
+
+            expect(character).toMatchObject({
+                species_id: 4,
+                species_name: "Elf",
+                background_id: 4,
+                background_name: "Criminal",
+                strength_score: 10,
+                dexterity_score: 17,
+                intelligence_score: 13
+            })
+        })
+    })
+
+    describe("findCharacterById", () => {
+        test("returns an existing character", () => {
+            const character = findCharacterById(testCharacter.character_id)
+
+            expect(character).toEqual(testCharacter)
+        })
+
+        test("returns undefined for a missing character", () => {
+            expect(findCharacterById(999999999)).toBeUndefined()
+        })
     })
 
     describe("updateCharacterById", () => {
@@ -201,7 +251,7 @@ describe("Database Character Queries", () => {
                 }
             )
 
-            expect(result).toEqual({
+            expect(result).toMatchObject({
                 character_id: testCharacter.character_id,
                 name: newName,
                 max_weight: 150
@@ -214,6 +264,46 @@ describe("Database Character Queries", () => {
 
             expect(storedCharacter).toBeDefined()
             expect(storedCharacter.max_weight).toBe(150)
+        })
+
+        test("updates species, background, and ability scores", () => {
+            const result = updateCharacterById(
+                testCharacter.character_id,
+                {
+                    species_id: 8,
+                    background_id: 15,
+                    strength_score: 16,
+                    charisma_score: 8
+                }
+            )
+
+            expect(result).toMatchObject({
+                species_id: 8,
+                species_name: "Human",
+                background_id: 15,
+                background_name: "Soldier",
+                strength_score: 16,
+                charisma_score: 8
+            })
+        })
+
+        test("leaves omitted fields unchanged", () => {
+            updateCharacterById(
+                testCharacter.character_id,
+                { strength_score: 15 }
+            )
+
+            const result = updateCharacterById(
+                testCharacter.character_id,
+                { max_weight: 200 }
+            )
+
+            expect(result).toMatchObject({
+                name: testCharacter.name,
+                max_weight: 200,
+                strength_score: 15,
+                dexterity_score: 10
+            })
         })
 
         test("returns undefined for a missing character", () => {
@@ -256,6 +346,18 @@ describe("Database Character Queries", () => {
 // Reference-data tests require referenceSeed.sql.
 // Seeded-character tests additionally require the three characters from testValues.sql.
 describe("Character Reference and Relationship Queries", () => {
+    describe("seeded character lookups", () => {
+        test("returns species and background names", () => {
+            expect(findCharacterById(1)).toMatchObject({
+                name: "Test Character 1",
+                species_id: 8,
+                species_name: "Human",
+                background_id: 15,
+                background_name: "Soldier"
+            })
+        })
+    })
+
     describe("findAllClasses", () => {
         test("returns all 12 classes alphabetically", () => {
             const classes = findAllClasses()
@@ -363,7 +465,13 @@ describe("Character Reference and Relationship Queries", () => {
     describe("findCharacterSkills", () => {
         test("returns seeded Rogue's Stealth expertise", () => {
             expect(findCharacterSkills(3)).toEqual([
-                expect.objectContaining({ character_id: 3, skill_id: 17, expertise: 1 })
+                expect.objectContaining({
+                    character_id: 3,
+                    skill_id: 17,
+                    skill_name: "Stealth",
+                    expertise: 1,
+                    ability_index: "dex"
+                })
             ])
         })
 
@@ -408,5 +516,57 @@ describe("Character Reference and Relationship Queries", () => {
         test("returns no masteries for an unassigned character", () => {
             expect(findCharacterWeaponMasteries(999999)).toEqual([])
         })
+    })
+})
+
+
+// Stubbed queries that still need implementations
+describe("Character Relationship Write Queries", () => {
+    describe("addCharacterClass", () => {
+        test.todo("adds a class with a subclass and level")
+        test.todo("adds a class without a subclass")
+        test.todo("rejects a subclass that belongs to a different class")
+        test.todo("rejects a duplicate class for the same character")
+    })
+
+    describe("updateCharacterClass", () => {
+        test.todo("updates a class level")
+        test.todo("sets a subclass on an existing class")
+    })
+
+    describe("removeCharacterClass", () => {
+        test.todo("removes a class from a character")
+        test.todo("returns false for a class the character does not have")
+    })
+
+    describe("addCharacterProficiency", () => {
+        test.todo("grants a proficiency")
+        test.todo("rejects a duplicate proficiency")
+    })
+
+    describe("removeCharacterProficiency", () => {
+        test.todo("removes a proficiency")
+    })
+
+    describe("addCharacterSkill", () => {
+        test.todo("adds a skill without expertise by default")
+        test.todo("adds a skill with expertise")
+    })
+
+    describe("updateCharacterSkillExpertise", () => {
+        test.todo("toggles expertise on an existing skill")
+    })
+
+    describe("removeCharacterSkill", () => {
+        test.todo("removes a skill")
+    })
+
+    describe("addCharacterWeaponMastery", () => {
+        test.todo("adds a weapon mastery")
+        test.todo("rejects a duplicate weapon mastery")
+    })
+
+    describe("removeCharacterWeaponMastery", () => {
+        test.todo("removes a weapon mastery")
     })
 })
