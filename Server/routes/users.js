@@ -24,29 +24,33 @@ const {
 // POST /users - Create a user
 router.post("/", async (req, res) => {
 
-    const username = req.body.username
-    const email = req.body.email
-    const password = req.body.password
+    const { username, email, password } = req.body
 
-    if (!username || !password || !email) {
+    if (
+        typeof username !== "string" ||
+        typeof email !== "string" ||
+        typeof password !== "string" ||
+        username.trim().length === 0 ||
+        email.trim().length === 0 ||
+        password.length === 0
+    ) {
         return res.status(400).json({
             error: "Username, password, and email are required"
         })
     }
 
+    if(password.length < 8 || password.length > 16){
+        return res.status(400).json({
+            error: "Password length must be 8-16 characters"
+        })
+    }
+
     try {
-
-        if(password.length < 8 || password.length > 16){
-            return res.status(400).json({
-                error: "Password length must be 8-16 characters"
-            })
-        }
-
         const passwordHash = await argon2.hash(password)
 
         const user = createUser({
-            username,
-            email,
+            username: username.trim(),
+            email: email.trim(),
             passwordHash
         })
         
@@ -133,51 +137,41 @@ router.patch("/me", requireAuth, async (req, res) => {
         })
     }
 
+    // Every account change requires the current password
+    if (
+        typeof currentPassword !== "string" ||
+        currentPassword.length === 0
+    ) {
+        return res.status(400).json({
+            error: "Current password is required"
+        })
+    }
+
     try {
+        const currentPasswordHash = findPasswordHashByUserId(userId)
 
-        // Username, Email, and password changes require password confirmation
-        if (hasUsername || hasEmail || hasPassword) {
-
-            if (
-                typeof currentPassword !== "string" ||
-                currentPassword.length === 0
-            ) {
-                return res.status(400).json({
-                    error: "Current password is required"
-                })
-            }
-
-            const currentPasswordHash = findPasswordHashByUserId(userId)
-
-            if (!currentPasswordHash) {
-                return res.status(404).json({
-                    error: "User not found"
-                })
-            }
-
-            const passwordMatches = await argon2.verify(
-                currentPasswordHash,
-                currentPassword
-            )
-
-            if (!passwordMatches) {
-                return res.status(401).json({
-                    error: "Current password is incorrect"
-                })
-            }
+        if (!currentPasswordHash) {
+            return res.status(404).json({
+                error: "User not found"
+            })
         }
 
-        // Preserve the existing hash unless password is being changed
-        let passwordHash = findPasswordHashByUserId(userId)
+        const passwordMatches = await argon2.verify(
+            currentPasswordHash,
+            currentPassword
+        )
 
-        if (hasPassword) {
-            passwordHash = await argon2.hash(password)
+        if (!passwordMatches) {
+            return res.status(401).json({
+                error: "Current password is incorrect"
+            })
         }
 
+        // Omitted fields keep their current value in updateUserById
         const updated = updateUserById(userId, {
-            username: hasUsername ? username.trim() : user.username,
-            email: hasEmail ? email.trim() : user.email,
-            passwordHash
+            username: hasUsername ? username.trim() : undefined,
+            email: hasEmail ? email.trim() : undefined,
+            passwordHash: hasPassword ? await argon2.hash(password) : undefined
         })
 
         if (!updated) {

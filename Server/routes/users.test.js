@@ -179,6 +179,58 @@ describe("User Routes", () => {
         })
 
 
+        test("rejects a whitespace-only username", async () => {
+            const response = await request(app)
+                .post("/users")
+                .send({
+                    username: "   ",
+                    email: "whitespaceusername@example.com",
+                    password: TEST_PASSWORD
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body.error).toBe(
+                "Username, password, and email are required"
+            )
+        })
+
+
+        test("rejects a non-string password", async () => {
+            const response = await request(app)
+                .post("/users")
+                .send({
+                    username: `NumberPassword_${Date.now()}`,
+                    email: `numberpassword_${Date.now()}@example.com`,
+                    password: 12345678
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body.error).toBe(
+                "Username, password, and email are required"
+            )
+        })
+
+
+        test("trims the username and email", async () => {
+            const uniqueSuffix =
+                `${Date.now()}_${Math.random().toString(16).slice(2)}`
+
+            const response = await request(app)
+                .post("/users")
+                .send({
+                    username: `  TrimmedUser_${uniqueSuffix}  `,
+                    email: `  trimmed_${uniqueSuffix}@example.com  `,
+                    password: TEST_PASSWORD
+                })
+
+            expect(response.status).toBe(201)
+            expect(response.body.username).toBe(`TrimmedUser_${uniqueSuffix}`)
+            expect(response.body.email).toBe(`trimmed_${uniqueSuffix}@example.com`)
+
+            additionalUserIds.push(response.body.user_id)
+        })
+
+
         test("rejects a missing email", async () => {
             const response = await request(app)
                 .post("/users")
@@ -309,14 +361,29 @@ describe("User Routes", () => {
         })
 
 
-        test("updates the username without requiring the current password", async () => {
+        test("requires the current password to change username", async () => {
+            const response = await agent
+                .patch("/users/me")
+                .send({
+                    username: `${testUser.username}_NoPassword`
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body.error).toBe(
+                "Current password is required"
+            )
+        })
+
+
+        test("updates the username when the current password is correct", async () => {
             const newUsername =
                 `${testUser.username}_Updated`
 
             const response = await agent
                 .patch("/users/me")
                 .send({
-                    username: newUsername
+                    username: newUsername,
+                    currentPassword: TEST_PASSWORD
                 })
 
             expect(response.status).toBe(200)
@@ -344,7 +411,8 @@ describe("User Routes", () => {
             const response = await agent
                 .patch("/users/me")
                 .send({
-                    username: `   ${newUsername}   `
+                    username: `   ${newUsername}   `,
+                    currentPassword: TEST_PASSWORD
                 })
 
             expect(response.status).toBe(200)
@@ -603,7 +671,8 @@ describe("User Routes", () => {
             const response = await agent
                 .patch("/users/me")
                 .send({
-                    username: `${testUser.username}_Updated`
+                    username: `${testUser.username}_Updated`,
+                    currentPassword: TEST_PASSWORD
                 })
 
             expect(response.status).toBe(200)
@@ -717,7 +786,8 @@ describe("User Routes", () => {
             const response = await agent
                 .patch("/users/me")
                 .send({
-                    username: secondUserResponse.body.username
+                    username: secondUserResponse.body.username,
+                    currentPassword: TEST_PASSWORD
                 })
 
             expect(response.status).toBe(409)
