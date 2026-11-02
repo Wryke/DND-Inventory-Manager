@@ -667,6 +667,35 @@ describe("Inventory Routes", () => {
         })
 
 
+        test("rejects a parent that is not a container", async () => {
+            const torchResponse = await agent
+                .post(
+                    `/characters/${encodeURIComponent(testCharacter.name)}/inventory`
+                )
+                .send({
+                    item_index: "torch",
+                    quantity: 1
+                })
+
+            expect(torchResponse.status).toBe(201)
+
+            const response = await agent
+                .post(
+                    `/characters/${encodeURIComponent(testCharacter.name)}/inventory`
+                )
+                .send({
+                    item_index: "torch",
+                    parent_inventory_id: torchResponse.body.inventory_id,
+                    quantity: 1
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body.error).toBe(
+                "Parent inventory entry is not a container"
+            )
+        })
+
+
         test("rejects a parent belonging to another character", async () => {
             const uniqueSuffix =
                 `${Date.now()}_${Math.random().toString(16).slice(2)}`
@@ -981,6 +1010,46 @@ describe("Inventory Routes", () => {
             expect(response.body.error).toBe(
                 "An inventory entry cannot contain itself"
             )
+        })
+
+
+        test("rejects moving an entry into something that is not a container", async () => {
+            const send = (body) => agent
+                .post(
+                    `/characters/${encodeURIComponent(testCharacter.name)}/inventory`
+                )
+                .send(body)
+
+            const torch = await send({ item_index: "torch", quantity: 1 })
+            const otherTorch = await send({ item_index: "torch", quantity: 1 })
+
+            const response = await agent
+                .patch(
+                    `/characters/${encodeURIComponent(testCharacter.name)}/inventory/` +
+                    otherTorch.body.inventory_id
+                )
+                .send({
+                    parent_inventory_id: torch.body.inventory_id
+                })
+
+            expect(response.status).toBe(400)
+            expect(response.body.error).toBe(
+                "Parent inventory entry is not a container"
+            )
+        })
+
+
+        test("returns 404 when updating an entry that does not exist", async () => {
+            const response = await agent
+                .patch(
+                    `/characters/${encodeURIComponent(testCharacter.name)}/inventory/999999999`
+                )
+                .send({
+                    quantity: 2
+                })
+
+            expect(response.status).toBe(404)
+            expect(response.body.error).toBe("Inventory entry not found")
         })
 
 
