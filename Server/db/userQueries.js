@@ -61,38 +61,32 @@ const createUserStmt = db.prepare(`
 function createUser ({ username, email, passwordHash }) {
     const result = createUserStmt.run(username, email, passwordHash)
 
-    return {
-        user_id: result.lastInsertRowid,
-        username,
-        email
-    }
+    return findUserById(result.lastInsertRowid)
 }
 
+// Omitted fields keep their current value
 const updateUserByIdStmt = db.prepare(`
     UPDATE users
-    SET username = ?,
-        email = ?,
-        password_hash = ?
-    WHERE user_id = ?
+    SET
+        username = COALESCE(@username, username),
+        email = COALESCE(@email, email),
+        password_hash = COALESCE(@passwordHash, password_hash)
+    WHERE user_id = @userId
 `)
 
-function updateUserById(userId, { username, email, passwordHash }) {
-    const result = updateUserByIdStmt.run(
-        username,
-        email,
-        passwordHash,
-        userId
-    )
+function updateUserById(userId, { username, email, passwordHash } = {}) {
+    const result = updateUserByIdStmt.run({
+        userId,
+        username: username ?? null,
+        email: email ?? null,
+        passwordHash: passwordHash ?? null
+    })
 
     if (result.changes === 0) {
         return undefined
     }
 
-    return {
-        user_id: userId,
-        username,
-        email
-    }
+    return findUserById(userId)
 }
 
 const deleteUserByIdStmt = db.prepare(`

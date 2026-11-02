@@ -2,32 +2,8 @@ const db = require("./connection")
 
 // --- Item Queries ---
 
-const findAllItemsStmt = db.prepare(`
-    SELECT
-        i.item_id,
-        i.item_index,
-        i.name,
-        i.description,
-        i.weight,
-        i.cost_quantity,
-
-        c.currency_code,
-        c.currency_name,
-
-        t.item_type_name
-    FROM items AS i
-    LEFT JOIN currency_lookup AS c
-        ON i.currency_unit_id = c.currency_unit_id
-    LEFT JOIN item_type_lookup AS t
-        ON i.item_type_id = t.item_type_id
-    ORDER BY i.name
-`)
-
-function findAllItems() {
-    return findAllItemsStmt.all()
-}
-
-const findItemsByCategoryStmt = db.prepare(`
+// Shared SELECT for item rows, including currency and item type names
+const itemSelect = `
     SELECT
         items.item_id,
         items.item_index,
@@ -35,19 +11,38 @@ const findItemsByCategoryStmt = db.prepare(`
         items.description,
         items.weight,
         items.cost_quantity,
+
         currency_lookup.currency_code,
         currency_lookup.currency_name,
+
         item_type_lookup.item_type_name
     FROM items
     LEFT JOIN currency_lookup
         ON items.currency_unit_id = currency_lookup.currency_unit_id
     LEFT JOIN item_type_lookup
         ON items.item_type_id = item_type_lookup.item_type_id
+`
+
+// Joins that restrict items to a category, for use after itemSelect
+const itemCategoryJoin = `
     JOIN item_to_category
         ON items.item_id = item_to_category.item_id
     JOIN categories_lookup
-        ON item_to_category.category_id =
-            categories_lookup.category_id
+        ON item_to_category.category_id = categories_lookup.category_id
+`
+
+const findAllItemsStmt = db.prepare(`
+    ${itemSelect}
+    ORDER BY items.name
+`)
+
+function findAllItems() {
+    return findAllItemsStmt.all()
+}
+
+const findItemsByCategoryStmt = db.prepare(`
+    ${itemSelect}
+    ${itemCategoryJoin}
     WHERE categories_lookup.category_index = ?
     ORDER BY items.name
 `)
@@ -57,21 +52,7 @@ function findItemsByCategory(categoryIndex) {
 }
 
 const findItemByIndexStmt = db.prepare(`
-    SELECT
-        items.item_id,
-        items.item_index,
-        items.name,
-        items.description,
-        items.weight,
-        items.cost_quantity,
-        currency_lookup.currency_code,
-        currency_lookup.currency_name,
-        item_type_lookup.item_type_name
-    FROM items
-    LEFT JOIN currency_lookup
-        ON items.currency_unit_id = currency_lookup.currency_unit_id
-    LEFT JOIN item_type_lookup
-        ON items.item_type_id = item_type_lookup.item_type_id
+    ${itemSelect}
     WHERE items.item_index = ?
 `)
 
@@ -80,22 +61,8 @@ function findItemByIndex(itemIndex) {
 }
 
 const findItemByNameStmt = db.prepare(`
-    SELECT
-        items.item_id,
-        items.item_index,
-        items.name,
-        items.description,
-        items.weight,
-        items.cost_quantity,
-        currency_lookup.currency_code,
-        currency_lookup.currency_name,
-        item_type_lookup.item_type_name
-    FROM items
-    LEFT JOIN currency_lookup
-        ON items.currency_unit_id = currency_lookup.currency_unit_id
-    LEFT JOIN item_type_lookup
-        ON items.item_type_id = item_type_lookup.item_type_id
-    where items.name = ? COLLATE NOCASE
+    ${itemSelect}
+    WHERE items.name = ? COLLATE NOCASE
 `)
 
 function findItemByName(name) {
@@ -116,28 +83,10 @@ function findAllItemCategories() {
 }
 
 const findItemByIndexAndCategoryStmt = db.prepare(`
-    SELECT
-        items.item_id,
-        items.item_index,
-        items.name,
-        items.description,
-        items.weight,
-        items.cost_quantity,
-        currency_lookup.currency_code,
-        currency_lookup.currency_name,
-        item_type_lookup.item_type_name
-    FROM items
-    LEFT JOIN currency_lookup
-        ON items.currency_unit_id = currency_lookup.currency_unit_id
-    LEFT JOIN item_type_lookup
-        ON items.item_type_id = item_type_lookup.item_type_id
-    JOIN item_to_category
-        ON items.item_id = item_to_category.item_id
-    JOIN categories_lookup
-        ON item_to_category.category_id = categories_lookup.category_id
+    ${itemSelect}
+    ${itemCategoryJoin}
     WHERE items.item_index = ?
         AND categories_lookup.category_index = ?
-    ORDER BY items.name
 `)
 
 function findItemByIndexAndCategory(itemIndex, categoryIndex) {
@@ -145,25 +94,8 @@ function findItemByIndexAndCategory(itemIndex, categoryIndex) {
 }
 
 const findItemByNameAndCategoryStmt = db.prepare(`
-    SELECT
-        items.item_id,
-        items.item_index,
-        items.name,
-        items.description,
-        items.weight,
-        items.cost_quantity,
-        currency_lookup.currency_code,
-        currency_lookup.currency_name,
-        item_type_lookup.item_type_name
-    FROM items
-    LEFT JOIN currency_lookup
-        ON items.currency_unit_id = currency_lookup.currency_unit_id
-    LEFT JOIN item_type_lookup
-        ON items.item_type_id = item_type_lookup.item_type_id
-    JOIN item_to_category
-        ON items.item_id = item_to_category.item_id
-    JOIN categories_lookup
-        ON item_to_category.category_id = categories_lookup.category_id
+    ${itemSelect}
+    ${itemCategoryJoin}
     WHERE items.name = ? COLLATE NOCASE
         AND categories_lookup.category_index = ?
     ORDER BY items.name
@@ -371,7 +303,7 @@ const findToolDetailsStmt = db.prepare(`
         ability_lookup.ability_index,
         ability_lookup.ability_name
     FROM tools
-    JOIN ability_lookup
+    LEFT JOIN ability_lookup
         ON tools.ability_score_id = ability_lookup.ability_score_id
     WHERE tools.item_id = ?
 `)

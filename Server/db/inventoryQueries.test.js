@@ -13,6 +13,7 @@ const {
     findAllInventoryByCharacterId,
     findRootInventoryByCharacterId,
     findInventoryChildren,
+    findInventoryWeightByCharacterId,
     createInventoryEntry,
     updateInventoryQuantity,
     moveInventoryEntry,
@@ -121,6 +122,31 @@ describe("Database Inventory Queries", () => {
 
             expect(torch.parent_inventory_id).toBe(backpack.inventory_id)
             expect(torch.quantity).toBe(2)
+        })
+
+        test("returns the stored entry with item details", () => {
+            const backpack = addItem("backpack")
+
+            expect(backpack).toEqual(getEntry(backpack.inventory_id))
+            expect(backpack.item_index).toBe("backpack")
+            expect(backpack.name).toBe("Backpack")
+        })
+
+        test("rejects a container owned by another character", () => {
+            const otherCharacter = createCharacter({
+                user_id: testUser.user_id,
+                name: `OtherCharacter_${Date.now()}`,
+                max_weight: 100
+            })
+
+            const otherBackpack = createInventoryEntry({
+                character_id: otherCharacter.character_id,
+                item_id: testItems.backpack.item_id,
+                quantity: 1
+            })
+
+            expect(() => addItem("torch", otherBackpack.inventory_id))
+                .toThrow("FOREIGN KEY constraint failed")
         })
     })
 
@@ -282,17 +308,43 @@ describe("Database Inventory Queries", () => {
         })
     })
 
+    describe("findInventoryWeightByCharacterId", () => {
+        test("totals quantity times weight, including nested items", () => {
+            const backpack = addItem("backpack")
+            const pouch = addItem("pouch", backpack.inventory_id)
+            addItem("torch", pouch.inventory_id, 3)
+
+            const expected =
+                (testItems.backpack.weight ?? 0) +
+                (testItems.pouch.weight ?? 0) +
+                (testItems.torch.weight ?? 0) * 3
+
+            expect(expected).toBeGreaterThan(0)
+
+            expect(
+                findInventoryWeightByCharacterId(testCharacter.character_id)
+            ).toBeCloseTo(expected)
+        })
+
+        test("returns 0 for no inventory", () => {
+            expect(
+                findInventoryWeightByCharacterId(testCharacter.character_id)
+            ).toBe(0)
+        })
+    })
+
     describe("updateInventoryQuantity", () => {
         test("updates an inventory quantity", () => {
             const torch = addItem("torch", null, 2)
 
             const updated = updateInventoryQuantity(
+                testCharacter.character_id,
                 torch.inventory_id,
                 5
             )
 
             expect(updated).toEqual({
-                inventory_id: torch.inventory_id,
+                ...torch,
                 quantity: 5
             })
 
@@ -301,8 +353,18 @@ describe("Database Inventory Queries", () => {
 
         test("returns undefined for a missing entry", () => {
             expect(
-                updateInventoryQuantity(999999999, 5)
+                updateInventoryQuantity(testCharacter.character_id, 999999999, 5)
             ).toBeUndefined()
+        })
+
+        test("does not update another character's entry", () => {
+            const torch = addItem("torch", null, 2)
+
+            expect(
+                updateInventoryQuantity(999999999, torch.inventory_id, 5)
+            ).toBeUndefined()
+
+            expect(getEntry(torch.inventory_id).quantity).toBe(2)
         })
     })
 
@@ -312,12 +374,13 @@ describe("Database Inventory Queries", () => {
             const torch = addItem("torch", null, 2)
 
             const moved = moveInventoryEntry(
+                testCharacter.character_id,
                 torch.inventory_id,
                 backpack.inventory_id
             )
 
             expect(moved).toEqual({
-                inventory_id: torch.inventory_id,
+                ...torch,
                 parent_inventory_id: backpack.inventory_id
             })
 
@@ -331,14 +394,12 @@ describe("Database Inventory Queries", () => {
             const torch = addItem("torch", backpack.inventory_id, 2)
 
             const moved = moveInventoryEntry(
+                testCharacter.character_id,
                 torch.inventory_id,
                 null
             )
 
-            expect(moved).toEqual({
-                inventory_id: torch.inventory_id,
-                parent_inventory_id: null
-            })
+            expect(moved.parent_inventory_id).toBeNull()
 
             expect(
                 getEntry(torch.inventory_id).parent_inventory_id
@@ -347,8 +408,21 @@ describe("Database Inventory Queries", () => {
 
         test("returns undefined for a missing entry", () => {
             expect(
-                moveInventoryEntry(999999999, null)
+                moveInventoryEntry(testCharacter.character_id, 999999999, null)
             ).toBeUndefined()
+        })
+
+        test("does not move another character's entry", () => {
+            const backpack = addItem("backpack")
+            const torch = addItem("torch", backpack.inventory_id, 2)
+
+            expect(
+                moveInventoryEntry(999999999, torch.inventory_id, null)
+            ).toBeUndefined()
+
+            expect(
+                getEntry(torch.inventory_id).parent_inventory_id
+            ).toBe(backpack.inventory_id)
         })
     })
 
@@ -358,6 +432,7 @@ describe("Database Inventory Queries", () => {
             const torch = addItem("torch", null, 2)
 
             const updated = updateInventoryEntry(
+                testCharacter.character_id,
                 torch.inventory_id,
                 {
                     quantity: 5,
@@ -366,7 +441,7 @@ describe("Database Inventory Queries", () => {
             )
 
             expect(updated).toEqual({
-                inventory_id: torch.inventory_id,
+                ...torch,
                 quantity: 5,
                 parent_inventory_id: backpack.inventory_id
             })
@@ -382,6 +457,7 @@ describe("Database Inventory Queries", () => {
             const torch = addItem("torch", backpack.inventory_id, 2)
 
             const updated = updateInventoryEntry(
+                testCharacter.character_id,
                 torch.inventory_id,
                 {
                     quantity: 7,
@@ -389,8 +465,7 @@ describe("Database Inventory Queries", () => {
                 }
             )
 
-            expect(updated).toEqual({
-                inventory_id: torch.inventory_id,
+            expect(updated).toMatchObject({
                 quantity: 7,
                 parent_inventory_id: null
             })
@@ -401,16 +476,32 @@ describe("Database Inventory Queries", () => {
             expect(stored.parent_inventory_id).toBeNull()
         })
 
-        test("throws for a missing inventory entry", () => {
-            expect(() => {
+        test("returns undefined for a missing inventory entry", () => {
+            expect(
                 updateInventoryEntry(
+                    testCharacter.character_id,
                     999999999,
                     {
                         quantity: 5,
                         parent_inventory_id: null
                     }
                 )
-            }).toThrow("Inventory entry not found")
+            ).toBeUndefined()
+        })
+
+        test("rolls back the quantity when the move fails", () => {
+            const torch = addItem("torch", null, 2)
+
+            expect(() => updateInventoryEntry(
+                testCharacter.character_id,
+                torch.inventory_id,
+                {
+                    quantity: 5,
+                    parent_inventory_id: 999999999
+                }
+            )).toThrow("FOREIGN KEY constraint failed")
+
+            expect(getEntry(torch.inventory_id).quantity).toBe(2)
         })
     })
 
@@ -418,7 +509,10 @@ describe("Database Inventory Queries", () => {
         test("deletes an inventory entry", () => {
             const torch = addItem("torch", null, 2)
 
-            const deleted = deleteInventoryEntry(torch.inventory_id)
+            const deleted = deleteInventoryEntry(
+                testCharacter.character_id,
+                torch.inventory_id
+            )
 
             expect(deleted).toBe(true)
             expect(getEntry(torch.inventory_id)).toBeUndefined()
@@ -428,7 +522,10 @@ describe("Database Inventory Queries", () => {
             const backpack = addItem("backpack")
             const pouch = addItem("pouch", backpack.inventory_id)
 
-            const deleted = deleteInventoryEntry(backpack.inventory_id)
+            const deleted = deleteInventoryEntry(
+                testCharacter.character_id,
+                backpack.inventory_id
+            )
 
             expect(deleted).toBe(true)
 
@@ -443,7 +540,7 @@ describe("Database Inventory Queries", () => {
             const pouch = addItem("pouch", backpack.inventory_id)
             const torch = addItem("torch", pouch.inventory_id, 2)
 
-            deleteInventoryEntry(backpack.inventory_id)
+            deleteInventoryEntry(testCharacter.character_id, backpack.inventory_id)
 
             const storedPouch = getEntry(pouch.inventory_id)
             const storedTorch = getEntry(torch.inventory_id)
@@ -453,7 +550,29 @@ describe("Database Inventory Queries", () => {
         })
 
         test("returns false for a missing inventory entry", () => {
-            expect(deleteInventoryEntry(999999999)).toBe(false)
+            expect(
+                deleteInventoryEntry(testCharacter.character_id, 999999999)
+            ).toBe(false)
+        })
+
+        test("does not delete another character's entry", () => {
+            const torch = addItem("torch", null, 2)
+
+            expect(
+                deleteInventoryEntry(999999999, torch.inventory_id)
+            ).toBe(false)
+
+            expect(getEntry(torch.inventory_id)).toBeDefined()
+        })
+
+        test("deleting the character removes nested inventory", () => {
+            const backpack = addItem("backpack")
+            const pouch = addItem("pouch", backpack.inventory_id)
+            addItem("torch", pouch.inventory_id, 2)
+
+            deleteUserById(testUser.user_id)
+
+            expect(getAll()).toEqual([])
         })
     })
 })

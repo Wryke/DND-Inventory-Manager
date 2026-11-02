@@ -31,9 +31,11 @@ function findEquipmentSlotById(equipmentSlotId) {
 }
 
 
-const findEquipmentEntryBySlotStmt = db.prepare(`
+// Shared SELECT for equipment rows, including the item and slot details
+const equipmentSelect = `
     SELECT
         equipment.equipment_id,
+        equipment.character_id,
         equipment.inventory_id,
 
         items.item_id,
@@ -50,6 +52,10 @@ const findEquipmentEntryBySlotStmt = db.prepare(`
         ON equipment.equipment_slot_id = equipment_slot_lookup.equipment_slot_id
     JOIN items
         ON inventory.item_id = items.item_id
+`
+
+const findEquipmentEntryBySlotStmt = db.prepare(`
+    ${equipmentSelect}
     WHERE equipment.character_id = ?
         AND equipment.equipment_slot_id = ?
 `)
@@ -63,25 +69,9 @@ function findEquipmentEntryBySlot(characterId, equipmentSlotId) {
 
 
 const findAllEquipmentStmt = db.prepare(`
-    SELECT
-        equipment.equipment_id,
-        equipment.inventory_id,
-
-        items.item_id,
-        items.item_index,
-        items.name,
-
-        equipment.equipment_slot_id,
-        equipment_slot_lookup.equipment_slot_index,
-        equipment_slot_lookup.equipment_slot_name
-    FROM equipment
-    JOIN inventory
-        ON equipment.inventory_id = inventory.inventory_id
-    JOIN equipment_slot_lookup
-        ON equipment.equipment_slot_id = equipment_slot_lookup.equipment_slot_id
-    JOIN items
-        ON inventory.item_id = items.item_id
+    ${equipmentSelect}
     WHERE equipment.character_id = ?
+    ORDER BY equipment.equipment_slot_id
 `)
 
 function findAllEquipment(characterId) {
@@ -90,24 +80,7 @@ function findAllEquipment(characterId) {
 
 
 const findEquipmentEntryByIdStmt = db.prepare(`
-    SELECT
-        equipment.equipment_id,
-        equipment.inventory_id,
-
-        items.item_id,
-        items.item_index,
-        items.name,
-
-        equipment.equipment_slot_id,
-        equipment_slot_lookup.equipment_slot_index,
-        equipment_slot_lookup.equipment_slot_name
-    FROM equipment
-    JOIN inventory
-        ON equipment.inventory_id = inventory.inventory_id
-    JOIN equipment_slot_lookup
-        ON equipment.equipment_slot_id = equipment_slot_lookup.equipment_slot_id
-    JOIN items
-        ON inventory.item_id = items.item_id
+    ${equipmentSelect}
     WHERE equipment.character_id = ?
         AND equipment.equipment_id = ?
 `)
@@ -136,23 +109,8 @@ function createEquipmentEntry(characterId, inventoryId, equipmentSlotId) {
         equipmentSlotId
     )
 
-    return {
-        equipment_id: result.lastInsertRowid,
-        character_id: characterId,
-        inventory_id: inventoryId,
-        equipment_slot_id: equipmentSlotId
-    }
+    return findEquipmentEntryById(characterId, result.lastInsertRowid)
 }
-
-
-// TODO : DECIDE LATER IF NEEDED
-// const updateEquipmentEntryByIdStmt = db.prepare(`
-    
-// `)
-
-// function updateEquipmentEntryById(/*TODO*/){
-//     return updateEquipmentEntryByIdStmt.run(/*TODO*/)
-// }
 
 
 const deleteEquipmentEntryByIdStmt = db.prepare(`
@@ -162,10 +120,12 @@ const deleteEquipmentEntryByIdStmt = db.prepare(`
 `)
 
 function deleteEquipmentEntryById(characterId, equipmentId) {
-    return deleteEquipmentEntryByIdStmt.run(
+    const result = deleteEquipmentEntryByIdStmt.run(
         characterId,
         equipmentId
     )
+
+    return result.changes === 1
 }
 
 const isInventoryItemCompatibleWithSlotStmt = db.prepare(`
@@ -180,16 +140,12 @@ const isInventoryItemCompatibleWithSlotStmt = db.prepare(`
 `)
 
 function isInventoryItemCompatibleWithSlot(inventoryId, equipmentSlotId) {
-    const object = isInventoryItemCompatibleWithSlotStmt.get(
+    const row = isInventoryItemCompatibleWithSlotStmt.get(
         inventoryId,
         equipmentSlotId
     )
 
-    if (object.is_compatible) {
-        return true
-    }
-
-    return false
+    return row.is_compatible === 1
 }
 
 const findCompatibleInventoryStmt = db.prepare(`
@@ -228,16 +184,12 @@ const isInventoryItemEquippedStmt = db.prepare(`
 `)
 
 function isInventoryItemEquipped(characterId, inventoryId){
-    const object = isInventoryItemEquippedStmt.get(
-        characterId, 
+    const row = isInventoryItemEquippedStmt.get(
+        characterId,
         inventoryId
     )
-    
-    if (object.is_equipped) {
-        return true
-    }
 
-    return false
+    return row.is_equipped === 1
 }
 
 module.exports = {
@@ -247,7 +199,6 @@ module.exports = {
     findAllEquipment,
     findEquipmentEntryById,
     createEquipmentEntry,
-    // TODO : updateEquipmentEntryById,
     deleteEquipmentEntryById,
     isInventoryItemCompatibleWithSlot,
     findCompatibleInventory,

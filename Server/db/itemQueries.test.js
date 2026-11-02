@@ -15,6 +15,8 @@ const {
     findEquipmentPackDetails
 } = require("./itemQueries")
 
+const db = require("./connection")
+
 describe("Database Item Queries", () => {
     let testItem
     let testCategory
@@ -458,6 +460,34 @@ describe("Database Item Detail Queries", () => {
             const tool = findToolDetails(-1)
 
             expect(tool).toBeUndefined()
+        })
+
+        test("returns a tool that has no ability score", () => {
+            const item = items.find(item =>
+                item.item_type_name === "tool"
+            )
+
+            const { ability_score_id } = db.prepare(`
+                SELECT ability_score_id FROM tools WHERE item_id = ?
+            `).get(item.item_id)
+
+            const setAbility = db.prepare(`
+                UPDATE tools SET ability_score_id = ? WHERE item_id = ?
+            `)
+
+            // ability_score_id is nullable, so clear it temporarily
+            setAbility.run(null, item.item_id)
+
+            try {
+                const tool = findToolDetails(item.item_id)
+
+                expect(tool).toBeDefined()
+                expect(tool.item_id).toBe(item.item_id)
+                expect(tool.ability_index).toBeNull()
+            }
+            finally {
+                setAbility.run(ability_score_id, item.item_id)
+            }
         })
     })
 

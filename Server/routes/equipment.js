@@ -259,13 +259,8 @@ router.post("/:name/equipment", requireAuth, (req, res) => {
             inventory_id,
             equipment_slot_id
         )
-        
-        const fullEntry = findEquipmentEntryById(
-            entry.character_id, 
-            entry.equipment_id
-        )
 
-        return res.status(201).json(fullEntry)
+        return res.status(201).json(entry)
     }
     catch (error) {
         return res.status(500).json({
@@ -328,7 +323,7 @@ router.delete("/:name/equipment/:equipmentId", requireAuth, (req, res) => {
             equipmentId
         )
 
-        if (deleted.changes === 0) {
+        if (!deleted) {
             return res.status(500).json({
                 error: "Entry could not be deleted"
             })

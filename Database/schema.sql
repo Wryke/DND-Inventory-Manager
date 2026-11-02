@@ -189,9 +189,8 @@ CREATE TABLE inventory (
     FOREIGN KEY (item_id)
         REFERENCES items(item_id),
 
-    FOREIGN KEY (parent_inventory_id)
-        REFERENCES inventory(inventory_id)
-        ON DELETE SET NULL,
+    FOREIGN KEY (character_id, parent_inventory_id)
+        REFERENCES inventory(character_id, inventory_id),
 
     UNIQUE (character_id, inventory_id)
 );

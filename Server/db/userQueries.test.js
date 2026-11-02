@@ -271,6 +271,25 @@ describe("Database User Queries", () => {
 
             expect(result).toBeUndefined()
         })
+
+        test("leaves omitted fields unchanged", () => {
+            const originalHash = findPasswordHashByUserId(testUser.user_id)
+            const newUsername = `${testUser.username}_Partial`
+
+            const result = updateUserById(testUser.user_id, {
+                username: newUsername
+            })
+
+            expect(result).toEqual({
+                user_id: testUser.user_id,
+                username: newUsername,
+                email: testUser.email
+            })
+
+            expect(
+                findPasswordHashByUserId(testUser.user_id)
+            ).toBe(originalHash)
+        })
     })
 
     describe("deleteUserById", () => {

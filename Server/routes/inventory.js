@@ -278,13 +278,8 @@ router.post("/:name/inventory", requireAuth, (req, res) => {
             parent_inventory_id: parentInventoryId,
             quantity
         })
-        
-        const fullEntry = findInventoryEntryById(
-            entry.character_id, 
-            entry.inventory_id
-        )
 
-        return res.status(201).json(fullEntry)
+        return res.status(201).json(entry)
     }
     catch (error) {
         return res.status(500).json({
@@ -388,15 +383,22 @@ router.patch("/:name/inventory/:inventoryId", requireAuth, (req, res) => {
     }
 
     try {
+        const characterId = character.character_id
+        let updatedEntry
+
         if(hasQuantity && hasParentInventoryId) {
-            updateInventoryEntry(inventoryId, {quantity, parent_inventory_id})
+            updatedEntry = updateInventoryEntry(characterId, inventoryId, {quantity, parent_inventory_id})
         } else if (hasQuantity) {
-            updateInventoryQuantity(inventoryId, quantity)
+            updatedEntry = updateInventoryQuantity(characterId, inventoryId, quantity)
         } else {
-            moveInventoryEntry(inventoryId, parent_inventory_id)
+            updatedEntry = moveInventoryEntry(characterId, inventoryId, parent_inventory_id)
         }
 
-        const updatedEntry = findInventoryEntryById(character.character_id, inventoryId)
+        if (!updatedEntry) {
+            return res.status(404).json({
+                error: "Inventory entry not found"
+            })
+        }
 
         return res.status(200).json(updatedEntry)
     }
@@ -477,7 +479,7 @@ router.delete("/:name/inventory/:inventoryId", requireAuth, (req, res) => {
     }
 
     try {
-        const deleted = deleteInventoryEntry(inventoryId)
+        const deleted = deleteInventoryEntry(character.character_id, inventoryId)
 
         if (!deleted) {
             return res.status(500).json({

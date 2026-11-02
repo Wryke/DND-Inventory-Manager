@@ -391,6 +391,10 @@ describe("Database Equipment Queries", () => {
 
             expect(equipment).toHaveLength(2)
 
+            const slotIds = equipment.map(entry => entry.equipment_slot_id)
+
+            expect(slotIds).toEqual([...slotIds].sort((a, b) => a - b))
+
             const longsword = equipment.find(
                 entry =>
                     entry.inventory_id ===
@@ -609,6 +613,8 @@ describe("Database Equipment Queries", () => {
 
             expect(stored.equipment_slot_index)
                 .toBe("main_hand")
+
+            expect(equipment).toEqual(stored)
         })
 
 
@@ -702,7 +708,7 @@ describe("Database Equipment Queries", () => {
                     created.equipment_id
                 )
 
-            expect(result.changes).toBe(1)
+            expect(result).toBe(true)
 
             const deleted =
                 findEquipmentEntryById(
@@ -745,7 +751,7 @@ describe("Database Equipment Queries", () => {
                     created.equipment_id
                 )
 
-            expect(result.changes).toBe(0)
+            expect(result).toBe(false)
 
             const equipment =
                 findEquipmentEntryById(
@@ -757,14 +763,14 @@ describe("Database Equipment Queries", () => {
         })
 
 
-        test("returns zero changes for a missing equipment entry", () => {
+        test("returns false for a missing equipment entry", () => {
             const result =
                 deleteEquipmentEntryById(
                     testCharacter.character_id,
                     999999999
                 )
 
-            expect(result.changes).toBe(0)
+            expect(result).toBe(false)
         })
 
     })
