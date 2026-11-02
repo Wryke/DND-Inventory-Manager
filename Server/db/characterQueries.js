@@ -221,14 +221,41 @@ function addCharacterClass ({ character_id, class_id, subclass_id = null, class_
     return findCharacterClasses(character_id)
 }
 
+const updateCharacterClassStmt = db.prepare(`
+    UPDATE character_to_class
+    SET
+        subclass_id = COALESCE(@subclass_id, subclass_id),
+        class_level = COALESCE(@class_level, class_level)
+    WHERE character_id = @characterId
+    AND class_id = @classId
+`)
+
 // Change a character's level and/or subclass for a class they have
-function updateCharacterClass (characterId, classId, { subclass_id, class_level }) {
-    throw new Error("Not implemented")
+function updateCharacterClass (characterId, classId, { subclass_id, class_level } = {}) {
+    const result = updateCharacterClassStmt.run({
+        characterId,
+        classId,
+        subclass_id: subclass_id ?? null,
+        class_level: class_level ?? null
+    })
+
+    if (result.changes === 0) {
+        return undefined
+    }
+
+    return findCharacterClasses(characterId)
 }
+
+const removeCharacterClassStmt = db.prepare(`
+    DELETE FROM character_to_class
+    WHERE character_id = ?
+    AND class_id = ?
+`)
 
 // Remove a class from a character
 function removeCharacterClass (characterId, classId) {
-    throw new Error("Not implemented")
+    const result = removeCharacterClassStmt.run(characterId, classId)
+    return result.changes === 1
 }
 
 // --- Species Queries ---
@@ -282,14 +309,28 @@ function findCharacterProficiencies(characterId) {
     return findCharacterProficienciesStmt.all(characterId)
 }
 
+const addCharacterProficiencyStmt = db.prepare(`
+    INSERT INTO character_to_proficiency (character_id, proficiency_id)
+    VALUES (?, ?)
+`)
+
 // Grant a proficiency to a character
 function addCharacterProficiency (characterId, proficiencyId) {
-    throw new Error("Not implemented")
+    addCharacterProficiencyStmt.run(characterId, proficiencyId)
+
+    return findCharacterProficiencies(characterId)
 }
+
+const removeCharacterProficiencyStmt = db.prepare(`
+    DELETE FROM character_to_proficiency
+    WHERE character_id = ?
+    AND proficiency_id = ?
+`)
 
 // Remove a proficiency from a character
 function removeCharacterProficiency (characterId, proficiencyId) {
-    throw new Error("Not implemented")
+    const result = removeCharacterProficiencyStmt.run(characterId, proficiencyId)
+    return result.changes === 1
 }
 
 // --- Skills Queries ---
