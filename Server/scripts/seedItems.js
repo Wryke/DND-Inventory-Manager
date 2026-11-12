@@ -1,6 +1,6 @@
 const fs = require("fs")
 const path = require("path")
-const db = require("./connection")
+const db = require("../db/connection")
 
 const equipmentPath = path.join(
     __dirname,

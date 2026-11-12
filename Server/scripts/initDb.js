@@ -2,10 +2,16 @@ const fs = require("fs")
 const path = require("path")
 const Database = require("better-sqlite3")
 
+// Select the database to rebuild, matching Server/db/connection.js
+const databaseName = process.env.NODE_ENV === "test"
+    ? "test.db"
+    : "dnd.db"
+
 // File paths used to recreate the database
 const databasePath = path.join(
     __dirname,
-    "../../Database/dnd.db"
+    "../../Database",
+    databaseName
 )
 
 const schemaPath = path.join(
@@ -56,4 +62,4 @@ db.exec(testValues)
 // Close the database connection
 db.close()
 
-console.log("Database created successfully")
+console.log(`Database ${databaseName} created successfully`)

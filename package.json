@@ -16,11 +16,12 @@
   "main": "index.js",
   "scripts": {
     "start": "set NODE_ENV=development&& node --env-file=.env Server/server.js",
-    "init-db": "node Server/db/initDb.js",
-    "init-test-db": "node Server/db/initTestDb.js",
-    "generate-seed": "node Server/db/generateSeed.js",
-    "check-db": "set NODE_ENV=development&& node Server/db/checkDb.js",
-    "check-test-db": "set NODE_ENV=test&& node Server/db/checkDb.js",
+    "init-db": "set NODE_ENV=development&& node Server/scripts/initDb.js",
+    "init-test-db": "set NODE_ENV=test&& node Server/scripts/initDb.js",
+    "generate-seed": "node Server/scripts/generateSeed.js",
+    "seed-items": "set NODE_ENV=development&& node Server/scripts/seedItems.js",
+    "check-db": "set NODE_ENV=development&& node Server/scripts/checkDb.js",
+    "check-test-db": "set NODE_ENV=test&& node Server/scripts/checkDb.js",
     "test": "set NODE_ENV=test&& node --env-file=.env ./node_modules/jest/bin/jest.js --runInBand"
   },
   "jest": {
