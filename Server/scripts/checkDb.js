@@ -27,7 +27,7 @@ function countRows(tableName) {
 // --- Database Header ---
 
 console.log("\n================================")
-console.log("       Database V2 Health")
+console.log("       Database V3 Health")
 console.log("================================")
 
 // --- Foreign Key Integrity ---
@@ -107,6 +107,84 @@ for (const [lookup, expected] of Object.entries(expectedLookupCounts)) {
             `${lookup} expected ${expected} rows but found ${lookupCounts[lookup]}`
         )
     }
+}
+
+// --- Character Lookup Tables ---
+
+section("Character Lookup Tables")
+
+const characterLookupCounts = {
+    classes: countRows("class_lookup"),
+    subclasses: countRows("subclass_lookup"),
+    species: countRows("species_lookup"),
+    backgrounds: countRows("background_lookup"),
+    skills: countRows("skill_lookup"),
+    proficiencies: countRows("proficiency_lookup"),
+    proficiencyTypes: countRows("proficiency_type_lookup"),
+    weaponTypes: countRows("weapon_type_lookup"),
+    equipmentSlots: countRows("equipment_slot_lookup")
+}
+
+console.log(`Classes:           ${characterLookupCounts.classes}`)
+console.log(`Subclasses:        ${characterLookupCounts.subclasses}`)
+console.log(`Species:           ${characterLookupCounts.species}`)
+console.log(`Backgrounds:       ${characterLookupCounts.backgrounds}`)
+console.log(`Skills:            ${characterLookupCounts.skills}`)
+console.log(`Proficiencies:     ${characterLookupCounts.proficiencies}`)
+console.log(`Proficiency types: ${characterLookupCounts.proficiencyTypes}`)
+console.log(`Weapon types:      ${characterLookupCounts.weaponTypes}`)
+console.log(`Equipment slots:   ${characterLookupCounts.equipmentSlots}`)
+
+// Expected sizes of referenceSeed.sql
+const expectedCharacterLookupCounts = {
+    classes: 12,
+    subclasses: 48,
+    species: 10,
+    backgrounds: 16,
+    skills: 18,
+    proficiencies: 49,
+    proficiencyTypes: 5,
+    weaponTypes: 38,
+    equipmentSlots: 11
+}
+
+let characterLookupMismatches = 0
+
+for (const [lookup, expected] of Object.entries(expectedCharacterLookupCounts)) {
+    if (characterLookupCounts[lookup] !== expected) {
+        characterLookupMismatches++
+
+        warning(
+            `${lookup} expected ${expected} rows but found ${characterLookupCounts[lookup]}`
+        )
+    }
+}
+
+if (characterLookupMismatches === 0) {
+    success("Character lookup tables match referenceSeed.sql")
+}
+
+// The subclasses lookup route treats an empty list as "class not found"
+const classesWithoutSubclasses = db.prepare(`
+    SELECT
+        class_lookup.class_index,
+        class_lookup.class_name
+    FROM class_lookup
+    LEFT JOIN subclass_lookup
+        ON class_lookup.class_id =
+           subclass_lookup.class_id
+    WHERE subclass_lookup.subclass_id IS NULL
+`).all()
+
+if (classesWithoutSubclasses.length === 0) {
+    success("Every class has at least one subclass")
+}
+else {
+    warning(
+        `${classesWithoutSubclasses.length} class(es) have no subclasses`
+    )
+
+    console.log(classesWithoutSubclasses)
 }
 
 // --- Item Type Distribution ---
@@ -639,6 +717,165 @@ for (const check of orphanChecks) {
             `${result.count} orphaned ${check.name}`
         )
     }
+}
+
+// --- Character Data ---
+
+section("Character Data")
+
+console.log(`Users:             ${countRows("users")}`)
+console.log(`Characters:        ${countRows("characters")}`)
+console.log(`Class links:       ${countRows("character_to_class")}`)
+console.log(`Proficiency links: ${countRows("character_to_proficiency")}`)
+console.log(`Skill links:       ${countRows("character_to_skill")}`)
+console.log(`Mastery links:     ${countRows("character_to_weapon_mastery")}`)
+
+// Total character level cannot exceed 20 across all classes
+const overLevelCharacters = db.prepare(`
+    SELECT
+        characters.character_id,
+        characters.name,
+        SUM(character_to_class.class_level) AS total_level
+    FROM characters
+    JOIN character_to_class
+        ON characters.character_id =
+           character_to_class.character_id
+    GROUP BY characters.character_id
+    HAVING total_level > 20
+`).all()
+
+if (overLevelCharacters.length === 0) {
+    success("No character has a total class level above 20")
+}
+else {
+    warning(
+        `${overLevelCharacters.length} character(s) have a total class level above 20`
+    )
+
+    console.log(overLevelCharacters)
+}
+
+// --- Inventory Integrity ---
+
+section("Inventory Integrity")
+
+console.log(`Inventory entries: ${countRows("inventory")}`)
+
+const entriesInNonContainers = db.prepare(`
+    SELECT
+        child.inventory_id,
+        child_item.item_index AS item_index,
+        parent_item.item_index AS parent_item_index
+    FROM inventory AS child
+    JOIN items AS child_item
+        ON child.item_id = child_item.item_id
+    JOIN inventory AS parent
+        ON child.parent_inventory_id = parent.inventory_id
+    JOIN items AS parent_item
+        ON parent.item_id = parent_item.item_id
+    LEFT JOIN containers
+        ON parent.item_id = containers.item_id
+    WHERE containers.item_id IS NULL
+`).all()
+
+if (entriesInNonContainers.length === 0) {
+    success("Every nested inventory entry is inside a container")
+}
+else {
+    warning(
+        `${entriesInNonContainers.length} inventory entry/entries are inside something that is not a container`
+    )
+
+    console.log(entriesInNonContainers)
+}
+
+// Walk up each entry's parents; reaching the starting entry again means a loop.
+// The depth limit stops entries that lead into a loop without being part of it.
+const inventoryCycles = db.prepare(`
+    WITH RECURSIVE chain (start_id, current_id, depth) AS (
+        SELECT inventory_id, parent_inventory_id, 1
+        FROM inventory
+        WHERE parent_inventory_id IS NOT NULL
+
+        UNION ALL
+
+        SELECT chain.start_id, inventory.parent_inventory_id, chain.depth + 1
+        FROM chain
+        JOIN inventory
+            ON inventory.inventory_id = chain.current_id
+        WHERE chain.current_id != chain.start_id
+          AND chain.depth < 100
+    )
+    SELECT DISTINCT start_id AS inventory_id
+    FROM chain
+    WHERE current_id = start_id
+`).all()
+
+if (inventoryCycles.length === 0) {
+    success("No inventory entry is nested inside itself")
+}
+else {
+    warning(
+        `${inventoryCycles.length} inventory entry/entries are part of a container loop`
+    )
+
+    console.log(inventoryCycles)
+}
+
+// --- Equipment Integrity ---
+
+section("Equipment Integrity")
+
+console.log(`Equipped items: ${countRows("equipment")}`)
+
+const incompatibleEquipment = db.prepare(`
+    SELECT
+        equipment.equipment_id,
+        items.item_index,
+        equipment_slot_lookup.equipment_slot_index
+    FROM equipment
+    JOIN inventory
+        ON equipment.inventory_id = inventory.inventory_id
+    JOIN items
+        ON inventory.item_id = items.item_id
+    JOIN equipment_slot_lookup
+        ON equipment.equipment_slot_id =
+           equipment_slot_lookup.equipment_slot_id
+    LEFT JOIN item_to_equipment_slot
+        ON inventory.item_id = item_to_equipment_slot.item_id
+       AND equipment.equipment_slot_id = item_to_equipment_slot.equipment_slot_id
+    WHERE item_to_equipment_slot.item_id IS NULL
+`).all()
+
+if (incompatibleEquipment.length === 0) {
+    success("Every equipped item is allowed in its slot")
+}
+else {
+    warning(
+        `${incompatibleEquipment.length} equipped item(s) are in a slot they are not allowed in`
+    )
+
+    console.log(incompatibleEquipment)
+}
+
+const multiSlotEquipment = db.prepare(`
+    SELECT
+        inventory_id,
+        COUNT(*) AS slot_count
+    FROM equipment
+    GROUP BY inventory_id
+    HAVING slot_count > 1
+`).all()
+
+if (multiSlotEquipment.length === 0) {
+    success("No inventory entry is equipped in more than one slot")
+}
+else {
+    warning(
+        `${multiSlotEquipment.length} inventory entry/entries are equipped in more than one slot`
+    )
+
+    console.log(multiSlotEquipment)
 }
 
 // --- Final Status ---
