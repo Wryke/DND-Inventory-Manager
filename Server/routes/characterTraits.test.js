@@ -11,13 +11,13 @@ describe("Character Trait Routes", () => {
 
     test("trait routes are not implemented yet", async () => {
         const response = await request(app)
-            .get("/characters/AnyCharacter/traits/sheet")
+            .get("/characters/AnyCharacter/sheet")
 
         // Unauthenticated requests are rejected or not found; neither is a 500
         expect(response.status).not.toBe(500)
     })
 
-    describe("GET /characters/:name/traits/sheet", () => {
+    describe("GET /characters/:name/sheet", () => {
         test.todo("returns the character with classes, proficiencies, skills, and weapon masteries")
     })
 
