@@ -69,16 +69,14 @@ database.
 
 ## Database schema
 
-The diagram below documents the project's database evolution across its
-V1, V2, and V3 designs.
+The diagram below shows the current (V3) schema, grouped into users,
+characters, inventory/equipment, and items.
 
 ![D&D database schema diagram](docs/schemaDiagram.jpg)
 
-**Note:** This diagram is a historical/design overview, not a guaranteed
-exact snapshot of the current database. The SQL schema is the source of
-truth for column definitions and constraints. For example, the current
-`users` table has `email` and `password_hash` fields, while the
-diagram's V1 account section shows an earlier design.
+`Database/schema.sql` remains the source of truth for exact column
+definitions and constraints, such as `CHECK` rules and `ON DELETE`
+behavior, which the diagram does not show.
 
 ### Key relationships
 

@@ -28,7 +28,7 @@ Client (from `Client/`): `npm run dev` (Vite, port 5173), `npm run build`, `npm 
 
 ## Database
 
-- **`Database/schema.sql` is the source of truth** for tables and constraints. `docs/schemaDiagram.jpg` is a historical V1–V3 design overview and is not exact.
+- **`Database/schema.sql` is the source of truth** for tables and constraints. `docs/schemaDiagram.jpg` is a snapshot of the current V3 schema; update it when tables change.
 - Maintenance scripts live in `Server/scripts/` (the app never imports them). `init-db` / `init-test-db` both run `Server/scripts/initDb.js`, which picks `dnd.db` or `test.db` from `NODE_ENV` the same way `connection.js` does. It deletes the DB file and then runs four SQL files in order: `schema.sql` → `referenceSeed.sql` (lookup tables: classes, species, skills, slots, etc.) → `seed.sql` (item data) → `testValues.sql` (sample users/characters). Any schema change means updating these SQL files and re-running init. There are no migrations.
 - `seed.sql` is **generated**, so don't hand-edit it. `Server/scripts/seedItems.js` loads `Database/Equipment.json` into `dnd.db`. `npm run generate-seed` then dumps the item tables from `dnd.db` back into `seed.sql`, in foreign-key dependency order (the table list is in `generateSeed.js`).
 - `Server/db/connection.js` chooses the DB from `NODE_ENV` (`test` → `test.db`, otherwise `dnd.db`) and turns on `PRAGMA foreign_keys`. Many relationships depend on `ON DELETE CASCADE` (user → characters → inventory/equipment).
