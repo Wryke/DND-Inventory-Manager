@@ -19,8 +19,8 @@ const {
 // GET /characters/ - Return all characters owned by a user
 // GET /characters/:name - Return a character by name
 // POST /characters/ - Create a character for a user
-// PATCH /characters/:name - Update a character
-// DELETE /characters/:name - Delete a character
+// PATCH /characters/:name - Update a character's core attributes
+// DELETE /characters/:name - Delete a character and everything it owns
 // --- ---------------- ---
 
 // Optional character fields accepted by POST and PATCH
@@ -225,7 +225,7 @@ router.patch("/:name", requireAuth, loadCharacter, (req, res) => {
     }
 })
 
-// DELETE /characters/:name - Delete a character
+// DELETE /characters/:name - Delete a character and everything it owns
 router.delete("/:name", requireAuth, loadCharacter, (req,res) => {
 
     const deleted = deleteCharacterById(req.character.character_id)

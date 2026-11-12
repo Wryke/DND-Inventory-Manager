@@ -44,6 +44,23 @@ function findCharacterById (characterId) {
     return findCharacterByIdStmt.get(characterId)
 }
 
+// Character row plus its classes, proficiencies, skills, and weapon masteries
+function findCharacterSheet (characterId) {
+    const character = findCharacterById(characterId)
+
+    if (!character) {
+        return undefined
+    }
+
+    return {
+        ...character,
+        classes: findCharacterClasses(characterId),
+        proficiencies: findCharacterProficiencies(characterId),
+        skills: findCharacterSkills(characterId),
+        weapon_masteries: findCharacterWeaponMasteries(characterId)
+    }
+}
+
 // Ability scores fall back to the schema default of 10 when omitted
 const createCharacterStmt = db.prepare(`
     INSERT INTO characters (
@@ -518,6 +535,7 @@ module.exports = {
     findCharactersByUserId,
     findCharacterByUserIdAndName,
     findCharacterById,
+    findCharacterSheet,
     createCharacter,
     updateCharacterById,
     deleteCharacterById,

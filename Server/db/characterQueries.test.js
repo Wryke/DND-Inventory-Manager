@@ -8,6 +8,7 @@ const {
     findCharactersByUserId,
     findCharacterByUserIdAndName,
     findCharacterById,
+    findCharacterSheet,
     createCharacter,
     updateCharacterById,
     deleteCharacterById,
@@ -366,6 +367,40 @@ describe("Character Reference and Relationship Queries", () => {
                 background_id: 15,
                 background_name: "Soldier"
             })
+        })
+    })
+
+    describe("findCharacterSheet", () => {
+        test("returns the seeded Fighter with every related list", () => {
+            const sheet = findCharacterSheet(1)
+
+            expect(sheet).toMatchObject({
+                character_id: 1,
+                name: "Test Character 1",
+                species_name: "Human",
+                background_name: "Soldier"
+            })
+
+            expect(sheet.classes).toEqual([
+                expect.objectContaining({ class_name: "Fighter", subclass_name: "Champion" })
+            ])
+            expect(sheet.proficiencies).toHaveLength(3)
+            expect(sheet.skills).toEqual([
+                expect.objectContaining({ skill_name: "Athletics" })
+            ])
+            expect(sheet.weapon_masteries).toEqual([
+                expect.objectContaining({ weapon_type_name: "Longsword" })
+            ])
+        })
+
+        test("has the same top-level fields as findCharacterById", () => {
+            const sheet = findCharacterSheet(1)
+
+            expect(sheet).toMatchObject(findCharacterById(1))
+        })
+
+        test("returns undefined for a missing character", () => {
+            expect(findCharacterSheet(999999)).toBeUndefined()
         })
     })
 
