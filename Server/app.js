@@ -8,6 +8,7 @@ const characterRoutes = require("./routes/characters.js")
 const inventoryRoutes = require("./routes/inventory.js")
 const itemRoutes = require("./routes/items.js")
 const equipmentRoutes = require("./routes/equipment.js")
+const lookupRoutes = require("./routes/lookups.js")
 
 const app = express()
 
@@ -31,5 +32,6 @@ app.use("/characters", characterRoutes)
 app.use("/characters", inventoryRoutes)
 app.use("/items", itemRoutes)
 app.use("/characters", equipmentRoutes)
+app.use("/lookups", lookupRoutes)
 
 module.exports = app
