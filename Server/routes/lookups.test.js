@@ -120,6 +120,43 @@ describe("Lookup Routes", () => {
     })
 
 
+    // --- GET /lookups/proficiencies ---
+
+    describe("GET /lookups/proficiencies", () => {
+
+        test("returns all 49 proficiencies with their type and ability", async () => {
+            const response = await request(app)
+                .get("/lookups/proficiencies")
+
+            expect(response.status).toBe(200)
+            expect(response.body).toHaveLength(49)
+            expect(response.body).toEqual(expect.arrayContaining([
+                expect.objectContaining({
+                    proficiency_id: 7,
+                    proficiency_index: "martial-weapons",
+                    type_index: "weapon",
+                    ability_index: null
+                }),
+                expect.objectContaining({
+                    proficiency_id: 58,
+                    proficiency_index: "saving-throw-str",
+                    type_index: "saving-throw",
+                    ability_index: "str"
+                })
+            ]))
+        })
+
+
+        test("returns proficiencies grouped by type", async () => {
+            const response = await request(app)
+                .get("/lookups/proficiencies")
+
+            expectAlphabetical(response.body, "type_name")
+        })
+
+    })
+
+
     // --- GET /lookups/skills ---
 
     describe("GET /lookups/skills", () => {
@@ -224,6 +261,7 @@ describe("Lookup Routes", () => {
                 "/lookups/backgrounds",
                 "/lookups/classes",
                 "/lookups/classes/5/subclasses",
+                "/lookups/proficiencies",
                 "/lookups/skills",
                 "/lookups/species",
                 "/lookups/weapon-masteries"

@@ -6,7 +6,8 @@ const {
     findSubclassByClassId,
     findAllSpecies,
     findAllBackgrounds,
-    findSkills,
+    findAllProficiencies,
+    findAllSkills,
     findAllWeaponMasteries
 } = require("../db/characterQueries.js")
 
@@ -14,6 +15,7 @@ const {
 // GET /lookups/backgrounds - Return all available backgrounds
 // GET /lookups/classes - Return all available classes
 // GET /lookups/classes/:classId/subclasses - Return all subclasses associated with a class ID
+// GET /lookups/proficiencies - Return all available proficiencies
 // GET /lookups/skills - Return all available skills
 // GET /lookups/species - Return all available species
 // GET /lookups/weapon-masteries - Return all available weapon masteries
@@ -54,9 +56,16 @@ router.get("/classes/:classId/subclasses", (req, res) => {
     return res.status(200).json(validSubclasses)
 })
 
+// GET /lookups/proficiencies - Return all available proficiencies
+router.get("/proficiencies", (req, res) => {
+    const proficiencies = findAllProficiencies()
+
+    return res.status(200).json(proficiencies)
+})
+
 // GET /lookups/skills - Return all available skills
 router.get("/skills", (req, res) => {
-    const skills = findSkills()
+    const skills = findAllSkills()
 
     return res.status(200).json(skills)
 })

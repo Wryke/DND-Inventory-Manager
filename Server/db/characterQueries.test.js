@@ -26,8 +26,9 @@ const {
     removeCharacterWeaponMastery,
     findAllSpecies,
     findAllBackgrounds,
+    findAllProficiencies,
     findCharacterProficiencies,
-    findSkills,
+    findAllSkills,
     findCharacterSkills,
     findAllWeaponMasteries,
     findCharacterWeaponMasteries
@@ -460,9 +461,41 @@ describe("Character Reference and Relationship Queries", () => {
         })
     })
 
-    describe("findSkills", () => {
+    describe("findAllProficiencies", () => {
+        test("returns all 49 proficiencies with their type and ability", () => {
+            const proficiencies = findAllProficiencies()
+            expect(proficiencies).toHaveLength(49)
+            expect(proficiencies).toEqual(expect.arrayContaining([
+                expect.objectContaining({
+                    proficiency_id: 7,
+                    proficiency_name: "Martial Weapons",
+                    type_index: "weapon",
+                    ability_index: null
+                }),
+                expect.objectContaining({
+                    proficiency_id: 58,
+                    proficiency_name: "Saving Throw: STR",
+                    type_index: "saving-throw",
+                    ability_index: "str"
+                })
+            ]))
+        })
+
+        test("groups proficiencies by type, alphabetical within each type", () => {
+            const proficiencies = findAllProficiencies()
+            const sorted = [...proficiencies].sort((a, b) =>
+                a.type_name.localeCompare(b.type_name) ||
+                a.proficiency_name.localeCompare(b.proficiency_name)
+            )
+            expect(proficiencies.map(p => p.proficiency_id)).toEqual(
+                sorted.map(p => p.proficiency_id)
+            )
+        })
+    })
+
+    describe("findAllSkills", () => {
         test("returns all 18 skills with their abilities", () => {
-            const skills = findSkills()
+            const skills = findAllSkills()
             expect(skills).toHaveLength(18)
             expect(skills).toEqual(expect.arrayContaining([
                 expect.objectContaining({ skill_name: "Athletics", ability_index: "str" }),

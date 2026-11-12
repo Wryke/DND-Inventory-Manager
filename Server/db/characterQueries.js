@@ -281,6 +281,31 @@ function findAllBackgrounds () {
 }
 
 // --- Proficiency Queries ---
+// Grouped by type, then alphabetical within each type
+const findAllProficienciesStmt = db.prepare(`
+    SELECT
+        p.proficiency_id,
+        p.proficiency_index,
+        p.proficiency_name,
+
+        t.proficiency_type_id,
+        t.type_index,
+        t.type_name,
+
+        a.ability_index,
+        a.ability_name
+    FROM proficiency_lookup AS p
+    JOIN proficiency_type_lookup AS t
+        ON p.proficiency_type_id = t.proficiency_type_id
+    LEFT JOIN ability_lookup AS a
+        ON p.ability_score_id = a.ability_score_id
+    ORDER BY t.type_name, p.proficiency_name
+`)
+
+function findAllProficiencies () {
+    return findAllProficienciesStmt.all()
+}
+
 const findCharacterProficienciesStmt = db.prepare(`
     SELECT
         c.character_id,
@@ -292,7 +317,7 @@ const findCharacterProficienciesStmt = db.prepare(`
         t.proficiency_type_id,
         t.type_index,
         t.type_name,
-        
+
         a.ability_index,
         a.ability_name
     FROM character_to_proficiency AS c
@@ -334,7 +359,7 @@ function removeCharacterProficiency (characterId, proficiencyId) {
 }
 
 // --- Skills Queries ---
-const findSkillsStmt = db.prepare(`
+const findAllSkillsStmt = db.prepare(`
     SELECT
         s.skill_id,
         s.skill_index,
@@ -348,8 +373,8 @@ const findSkillsStmt = db.prepare(`
     ORDER BY s.skill_name
 `)
 
-function findSkills () {
-    return findSkillsStmt.all()
+function findAllSkills () {
+    return findAllSkillsStmt.all()
 }
 
 const findCharacterSkillsStmt = db.prepare(`
@@ -507,11 +532,12 @@ module.exports = {
     findAllSpecies,
     findAllBackgrounds,
 
+    findAllProficiencies,
     findCharacterProficiencies,
     addCharacterProficiency,
     removeCharacterProficiency,
 
-    findSkills,
+    findAllSkills,
     findCharacterSkills,
     addCharacterSkill,
     updateCharacterSkillExpertise,
