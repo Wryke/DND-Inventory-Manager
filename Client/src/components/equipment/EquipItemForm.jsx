@@ -50,7 +50,7 @@ function EquipItemForm (props) {
         }
 
         loadCompatibleInventory()
-    }, [props.slot.equipment_slot_id])
+    }, [props.selectedCharacter.name, props.slot.equipment_slot_id])
 
     // --- Event Handlers ---
     async function handleSubmit(event) {

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api-test-db",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set NODE_ENV=test&& node Server/scripts/initDb.js && node --env-file=.env Server/server.js"],
+      "port": 3000
+    },
+    {
+      "name": "client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "Client"],
+      "port": 5173
+    }
+  ]
+}

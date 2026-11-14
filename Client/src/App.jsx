@@ -90,7 +90,7 @@ function App() {
                 const user = await getCurrentUser()
                 setCurrentUser(user)
             }
-            catch (error) {
+            catch {
                 setCurrentUser(null)
             }
             finally {
@@ -115,23 +115,16 @@ function App() {
 
         if (currentUser) {
             loadCharacters()
-        } else {
-            setSelectedCharacter(null)
-            setCharacters([])
         }
 
     }, [currentUser])
 
     useEffect(() => {
         if (selectedCharacter === null) {
-            setInventory([])
-            setEquipment([])
             return
         }
 
         async function loadInventory(){
-            setInventory([])
-
             try {
                 const data = await getCharacterInventory(selectedCharacter.name)
 
@@ -143,8 +136,6 @@ function App() {
         }
 
         async function loadEquipment(){
-            setEquipment([])
-
             try {
                 const data = await getCharacterEquipment(selectedCharacter.name)
 
@@ -289,7 +280,23 @@ function App() {
     }
 
     // --- Event Handlers ---
+    // Clear all character data when the user logs out or deletes their account
+    function clearCharacterData() {
+        setSelectedCharacter(null)
+        setCharacters([])
+        setInventory([])
+        setEquipment([])
+    }
+
     function handleSelectCharacter(character){
+        // Re-selecting the current character would clear its data without reloading it
+        if (character?.character_id === selectedCharacter?.character_id) {
+            return
+        }
+
+        // Clear the previous character's data; the effect loads the new one
+        setInventory([])
+        setEquipment([])
         setSelectedCharacter(character)
     }
 
@@ -324,6 +331,7 @@ function App() {
             await logout()
             setCurrentPage("home")
             setCurrentUser(null)
+            clearCharacterData()
             return null
         } catch (error) {
             return error.message
@@ -360,6 +368,7 @@ function App() {
             await deleteUser(currentPassword)
 
             setCurrentUser(null)
+            clearCharacterData()
             setCurrentPage("home")
 
             return null
