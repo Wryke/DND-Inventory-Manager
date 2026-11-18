@@ -36,4 +36,31 @@ app.use("/items", itemRoutes)
 app.use("/characters", equipmentRoutes)
 app.use("/lookups", lookupRoutes)
 
+// --- Error Handling ---
+
+// Unknown routes return JSON like every other error
+app.use((req, res) => {
+    res.status(404).json({
+        error: `Route not found: ${req.method} ${req.originalUrl}`
+    })
+})
+
+// Errors Express catches itself, such as a request body that isn't valid JSON.
+// Express identifies error handlers by their four parameters, so next must stay.
+app.use((error, req, res, next) => {
+    if (error.type === "entity.parse.failed") {
+        return res.status(400).json({
+            error: "Request body is not valid JSON"
+        })
+    }
+
+    console.error(error)
+
+    res.status(error.status || 500).json({
+        error: error.status && error.status < 500
+            ? error.message
+            : "Internal server error"
+    })
+})
+
 module.exports = app
