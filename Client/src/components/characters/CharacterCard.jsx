@@ -19,6 +19,11 @@ function CharacterCard({
     // --- Derived Data ---
     const isSelected = selectedCharacter?.character_id === character.character_id
 
+    // e.g. "Human · Soldier"; empty when neither is set
+    const origin = [character.species_name, character.background_name]
+        .filter(Boolean)
+        .join(" · ")
+
     // --- Event Handlers ---
     function handleEditClick() {
         setIsEditing(true)
@@ -44,6 +49,10 @@ function CharacterCard({
     return (
         <div className={`character-card ${isSelected ? "selected" : ""}`}>
             <h2>{character.name}</h2>
+
+            {origin && (
+                <p>{origin}</p>
+            )}
 
             <p>
                 Max Carry Weight: {character.max_weight} lbs

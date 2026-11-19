@@ -40,11 +40,16 @@ import {
     logout
 } from "./api/auth"
 
-import { 
+import {
     register,
     updateUser,
     deleteUser
 } from "./api/users"
+
+import {
+    getSpecies,
+    getBackgrounds
+} from "./api/lookups"
 
 function App() {
     
@@ -59,6 +64,9 @@ function App() {
     const [equipment, setEquipment] = useState([])
     
     const [equipmentSlots, setEquipmentSlots] = useState([])
+
+    const [species, setSpecies] = useState([])
+    const [backgrounds, setBackgrounds] = useState([])
 
     const [currentPage, setCurrentPage] = useState("home")
 
@@ -85,6 +93,22 @@ function App() {
             }
         }
 
+        // Reference data is the same for every user, so it loads once
+        async function loadLookups() {
+            try {
+                const [speciesData, backgroundData] = await Promise.all([
+                    getSpecies(),
+                    getBackgrounds()
+                ])
+
+                setSpecies(speciesData)
+                setBackgrounds(backgroundData)
+            }
+            catch (error) {
+                console.error(error)
+            }
+        }
+
         async function checkAuth() {
             try{
                 const user = await getCurrentUser()
@@ -99,6 +123,7 @@ function App() {
         }
 
         loadEquipmentSlots()
+        loadLookups()
         checkAuth()
     }, [])
 
@@ -225,13 +250,8 @@ function App() {
     }
 
     // Character Functions
-    async function addCharacter(name, maxWeight) {
-
-        const newCharacter = {
-            name: name,
-            max_weight: Number(maxWeight)
-        }
-
+    // newCharacter: { name, max_weight, species_id?, background_id?, *_score }
+    async function addCharacter(newCharacter) {
         try {
             const data = await createCharacter(newCharacter)
 
@@ -472,6 +492,8 @@ function App() {
                         <CharactersPage
                             selectedCharacter={selectedCharacter}
                             addCharacter={addCharacter}
+                            species={species}
+                            backgrounds={backgrounds}
                             characterElements={characterElements}
                         />
                     )}

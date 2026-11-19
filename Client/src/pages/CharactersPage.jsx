@@ -2,7 +2,7 @@ import { useState } from "react"
 import CharacterForm from "../components/characters/CharacterForm"
 import Modal from "../components/Modal"
 
-function CharactersPage({ addCharacter, characterElements }) {
+function CharactersPage({ addCharacter, species, backgrounds, characterElements }) {
 
     // --- State ---
     const [isCreateCharacterOpen, setIsCreateCharacterOpen] = useState(false)
@@ -32,6 +32,8 @@ function CharactersPage({ addCharacter, characterElements }) {
                 <Modal>
                     <CharacterForm
                         addCharacter={addCharacter}
+                        species={species}
+                        backgrounds={backgrounds}
                         cancelCreate={handleCreateCharacterClose}
                     />
                 </Modal>
