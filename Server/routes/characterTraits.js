@@ -168,9 +168,10 @@ router.patch("/:name/classes/:classId", requireAuth, loadCharacter, (req, res) =
         })
     }
 
-    if (hasSubclass && !isPositiveInteger(subclass_id)) {
+    // null clears the subclass
+    if (hasSubclass && subclass_id !== null && !isPositiveInteger(subclass_id)) {
         return res.status(400).json({
-            error: "Subclass ID must be a positive integer"
+            error: "Subclass ID must be a positive integer or null"
         })
     }
 

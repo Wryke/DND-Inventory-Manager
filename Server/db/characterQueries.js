@@ -121,15 +121,16 @@ function createCharacter ({
     return findCharacterById(result.lastInsertRowid)
 }
 
-// Omitted fields keep their current value. Note: COALESCE means
-// species_id and background_id cannot currently be cleared back to NULL.
+// Omitted fields keep their current value. species_id and background_id
+// can also be cleared: sending them as null sets them to NULL, which is why
+// they use a "was this field sent" flag instead of COALESCE.
 const updateCharacterByIdStmt = db.prepare(`
     UPDATE characters
     SET
         name = COALESCE(@name, name),
         max_weight = COALESCE(@max_weight, max_weight),
-        species_id = COALESCE(@species_id, species_id),
-        background_id = COALESCE(@background_id, background_id),
+        species_id = CASE WHEN @set_species_id = 1 THEN @species_id ELSE species_id END,
+        background_id = CASE WHEN @set_background_id = 1 THEN @background_id ELSE background_id END,
         strength_score = COALESCE(@strength_score, strength_score),
         dexterity_score = COALESCE(@dexterity_score, dexterity_score),
         constitution_score = COALESCE(@constitution_score, constitution_score),
@@ -158,6 +159,9 @@ function updateCharacterById(characterId, updates = {}) {
     for (const field of fields) {
         params[field] = updates[field] ?? null
     }
+
+    params.set_species_id = updates.species_id !== undefined ? 1 : 0
+    params.set_background_id = updates.background_id !== undefined ? 1 : 0
 
     const result = updateCharacterByIdStmt.run(params)
 
@@ -238,10 +242,11 @@ function addCharacterClass ({ character_id, class_id, subclass_id = null, class_
     return findCharacterClasses(character_id)
 }
 
+// Omitted fields keep their current value; subclass_id sent as null clears it
 const updateCharacterClassStmt = db.prepare(`
     UPDATE character_to_class
     SET
-        subclass_id = COALESCE(@subclass_id, subclass_id),
+        subclass_id = CASE WHEN @set_subclass_id = 1 THEN @subclass_id ELSE subclass_id END,
         class_level = COALESCE(@class_level, class_level)
     WHERE character_id = @characterId
     AND class_id = @classId
@@ -253,6 +258,7 @@ function updateCharacterClass (characterId, classId, { subclass_id, class_level 
         characterId,
         classId,
         subclass_id: subclass_id ?? null,
+        set_subclass_id: subclass_id !== undefined ? 1 : 0,
         class_level: class_level ?? null
     })
 
@@ -345,6 +351,7 @@ const findCharacterProficienciesStmt = db.prepare(`
     LEFT JOIN ability_lookup AS a
         ON p.ability_score_id = a.ability_score_id
     WHERE c.character_id = ?
+    ORDER BY t.type_name, p.proficiency_name
 `)
 
 function findCharacterProficiencies(characterId) {

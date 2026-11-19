@@ -252,6 +252,42 @@ describe("Database Character Queries", () => {
     })
 
     describe("updateCharacterById", () => {
+        test("clears species and background when sent as null", () => {
+            updateCharacterById(testCharacter.character_id, {
+                species_id: 8,
+                background_id: 15
+            })
+
+            const result = updateCharacterById(testCharacter.character_id, {
+                species_id: null,
+                background_id: null
+            })
+
+            expect(result).toMatchObject({
+                species_id: null,
+                species_name: null,
+                background_id: null,
+                background_name: null
+            })
+        })
+
+        test("keeps species and background when they are omitted", () => {
+            updateCharacterById(testCharacter.character_id, {
+                species_id: 8,
+                background_id: 15
+            })
+
+            const result = updateCharacterById(testCharacter.character_id, {
+                max_weight: 200
+            })
+
+            expect(result).toMatchObject({
+                species_id: 8,
+                background_id: 15,
+                max_weight: 200
+            })
+        })
+
         test("updates an existing character", () => {
             const newName = `${testCharacter.name}_Updated`
 
@@ -471,6 +507,12 @@ describe("Character Reference and Relationship Queries", () => {
     })
 
     describe("findCharacterProficiencies", () => {
+        test("returns proficiencies grouped by type, alphabetical within each type", () => {
+            expect(findCharacterProficiencies(1).map(p => p.proficiency_name)).toEqual([
+                "Saving Throw: CON", "Saving Throw: STR", "Martial Weapons"
+            ])
+        })
+
         test("returns Fighter's weapon and saving throw proficiencies", () => {
             const proficiencies = findCharacterProficiencies(1)
             expect(proficiencies).toHaveLength(3)
@@ -754,6 +796,30 @@ describe("Character Relationship Write Queries", () => {
                     class_id: 5,
                     subclass_id: 18,
                     subclass_name: "Champion",
+                    class_level: 3
+                })
+            ])
+        })
+
+        test("clears a subclass when sent as null", () => {
+            addCharacterClass({
+                character_id: testCharacter.character_id,
+                class_id: 5,
+                subclass_id: 18,
+                class_level: 3
+            })
+
+            const classes = updateCharacterClass(
+                testCharacter.character_id,
+                5,
+                { subclass_id: null }
+            )
+
+            expect(classes).toEqual([
+                expect.objectContaining({
+                    class_id: 5,
+                    subclass_id: null,
+                    subclass_name: null,
                     class_level: 3
                 })
             ])

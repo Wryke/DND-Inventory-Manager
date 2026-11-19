@@ -37,9 +37,14 @@ const abilityScoreFields = [
 
 // Return an error message for any invalid optional field, or null
 function validateOptionalFields(body) {
+    // Species and background may be null, which clears them
     for (const field of lookupFields) {
-        if (body[field] !== undefined && (!Number.isInteger(body[field]) || body[field] <= 0)) {
-            return `${field} must be a positive integer`
+        if (
+            body[field] !== undefined &&
+            body[field] !== null &&
+            (!Number.isInteger(body[field]) || body[field] <= 0)
+        ) {
+            return `${field} must be a positive integer or null`
         }
     }
 

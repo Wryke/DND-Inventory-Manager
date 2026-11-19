@@ -4,6 +4,7 @@ import './App.css'
 import HomePage from './pages/HomePage'
 import AccountPage from './pages/AccountPage'
 import CharactersPage from './pages/CharactersPage'
+import CharacterSheetPage from './pages/CharacterSheetPage'
 import InventoryPage from './pages/InventoryPage'
 import EquipmentPage from './pages/EquipmentPage'
 import LoginPage from './pages/LoginPage'
@@ -48,7 +49,11 @@ import {
 
 import {
     getSpecies,
-    getBackgrounds
+    getBackgrounds,
+    getClasses,
+    getSkills,
+    getProficiencies,
+    getWeaponMasteries
 } from "./api/lookups"
 
 function App() {
@@ -65,8 +70,15 @@ function App() {
     
     const [equipmentSlots, setEquipmentSlots] = useState([])
 
-    const [species, setSpecies] = useState([])
-    const [backgrounds, setBackgrounds] = useState([])
+    // Reference lists from /lookups, loaded once
+    const [lookups, setLookups] = useState({
+        species: [],
+        backgrounds: [],
+        classes: [],
+        skills: [],
+        proficiencies: [],
+        weaponMasteries: []
+    })
 
     const [currentPage, setCurrentPage] = useState("home")
 
@@ -96,13 +108,30 @@ function App() {
         // Reference data is the same for every user, so it loads once
         async function loadLookups() {
             try {
-                const [speciesData, backgroundData] = await Promise.all([
+                const [
+                    species,
+                    backgrounds,
+                    classes,
+                    skills,
+                    proficiencies,
+                    weaponMasteries
+                ] = await Promise.all([
                     getSpecies(),
-                    getBackgrounds()
+                    getBackgrounds(),
+                    getClasses(),
+                    getSkills(),
+                    getProficiencies(),
+                    getWeaponMasteries()
                 ])
 
-                setSpecies(speciesData)
-                setBackgrounds(backgroundData)
+                setLookups({
+                    species,
+                    backgrounds,
+                    classes,
+                    skills,
+                    proficiencies,
+                    weaponMasteries
+                })
             }
             catch (error) {
                 console.error(error)
@@ -448,6 +477,8 @@ function App() {
                 selectCharacter={handleSelectCharacter}
                 updateCharacter={handleUpdateCharacter}
                 removeCharacter={removeCharacter}
+                species={lookups.species}
+                backgrounds={lookups.backgrounds}
             />
         )
     })
@@ -492,9 +523,17 @@ function App() {
                         <CharactersPage
                             selectedCharacter={selectedCharacter}
                             addCharacter={addCharacter}
-                            species={species}
-                            backgrounds={backgrounds}
+                            species={lookups.species}
+                            backgrounds={lookups.backgrounds}
                             characterElements={characterElements}
+                        />
+                    )}
+
+                    {currentPage === "sheet" && selectedCharacter && (
+                        <CharacterSheetPage
+                            key={selectedCharacter.character_id}
+                            selectedCharacter={selectedCharacter}
+                            lookups={lookups}
                         />
                     )}
 

@@ -40,6 +40,17 @@ function Sidebar(props) {
                     <>
                         <button
                             className={
+                                props.currentPage === "sheet"
+                                    ? "sidebar-button active"
+                                    : "sidebar-button"
+                            }
+                            onClick={() => props.setCurrentPage("sheet")}
+                        >
+                            Character Sheet
+                        </button>
+
+                        <button
+                            className={
                                 props.currentPage === "inventory"
                                     ? "sidebar-button active"
                                     : "sidebar-button"

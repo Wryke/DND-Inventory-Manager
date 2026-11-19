@@ -289,6 +289,22 @@ describe("Character Trait Routes", () => {
         })
 
 
+        test("clears a subclass when sent as null", async () => {
+            await agent
+                .patch(characterPath("/classes/5"))
+                .send({ subclass_id: 18 })
+
+            const response = await agent
+                .patch(characterPath("/classes/5"))
+                .send({ subclass_id: null })
+
+            expect(response.status).toBe(200)
+            expect(response.body).toEqual([
+                expect.objectContaining({ subclass_id: null, class_level: 3 })
+            ])
+        })
+
+
         test("rejects an empty update", async () => {
             const response = await agent
                 .patch(characterPath("/classes/5"))

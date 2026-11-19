@@ -592,6 +592,26 @@ describe("Character Routes", () => {
         })
 
 
+        test("clears species and background when sent as null", async () => {
+            const path = `/characters/${encodeURIComponent(testCharacter.name)}`
+
+            await agent.patch(path).send({ species_id: 8, background_id: 15 })
+
+            const response = await agent
+                .patch(path)
+                .send({
+                    species_id: null,
+                    background_id: null
+                })
+
+            expect(response.status).toBe(200)
+            expect(response.body).toMatchObject({
+                species_id: null,
+                background_id: null
+            })
+        })
+
+
         test("returns 404 for a missing character", async () => {
             const response = await agent
                 .patch("/characters/CharacterThatDoesNotExist")

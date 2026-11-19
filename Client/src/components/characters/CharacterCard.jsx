@@ -10,7 +10,9 @@ function CharacterCard({
     selectedCharacter,
     selectCharacter,
     removeCharacter,
-    updateCharacter
+    updateCharacter,
+    species,
+    backgrounds
 }) {
 
     // --- State ---
@@ -88,6 +90,8 @@ function CharacterCard({
                         character={character}
                         updateCharacter={updateCharacter}
                         cancelEdit={handleEditClose}
+                        species={species}
+                        backgrounds={backgrounds}
                     />
                 </Modal>
             )}

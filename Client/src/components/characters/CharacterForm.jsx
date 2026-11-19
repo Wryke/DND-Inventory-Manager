@@ -1,14 +1,6 @@
 import { useState } from 'react'
 
-// Ability score fields, keyed by the server's field names
-const ABILITY_SCORES = [
-    { field: "strength_score", label: "Strength" },
-    { field: "dexterity_score", label: "Dexterity" },
-    { field: "constitution_score", label: "Constitution" },
-    { field: "intelligence_score", label: "Intelligence" },
-    { field: "wisdom_score", label: "Wisdom" },
-    { field: "charisma_score", label: "Charisma" }
-]
+import { ABILITY_SCORES } from '../../utils/abilityScores'
 
 // Every score starts at the schema default of 10
 const DEFAULT_ABILITY_SCORES = Object.fromEntries(
