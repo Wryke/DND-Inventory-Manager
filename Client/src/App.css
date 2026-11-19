@@ -165,6 +165,20 @@
     gap: 0.5rem;
 }
 
+/* --- Confirm Dialog --- */
+
+.confirm-dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 420px;
+}
+
+.confirm-dialog h3,
+.confirm-dialog p {
+    margin: 0;
+}
+
 .equipment-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

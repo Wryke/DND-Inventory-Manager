@@ -2,6 +2,7 @@
 import { useState } from "react"
 
 import Modal from "../Modal"
+import ConfirmDialog from "../ConfirmDialog"
 import CharacterEditForm from "./CharacterEditForm"
 import "../../styles/CharacterCard.css"
 
@@ -17,6 +18,7 @@ function CharacterCard({
 
     // --- State ---
     const [isEditing, setIsEditing] = useState(false)
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
 
     // --- Derived Data ---
     const isSelected = selectedCharacter?.character_id === character.character_id
@@ -35,16 +37,18 @@ function CharacterCard({
         setIsEditing(false)
     }
 
-    function handleDelete() {
-        const confirmed = window.confirm(
-            `Are you sure you want to delete ${character.name}? This action cannot be undone.`
-        )
+    function handleDeleteClick() {
+        setIsConfirmingDelete(true)
+    }
 
-        if (!confirmed) {
-            return
-        }
+    function handleDeleteCancel() {
+        setIsConfirmingDelete(false)
+    }
 
-        removeCharacter(character.character_id)
+    // Returns the error message, if any, for the dialog to show.
+    // On success the character is removed, which unmounts this card and its dialog.
+    function handleDeleteConfirm() {
+        return removeCharacter(character.character_id)
     }
 
     // --- Render ---
@@ -78,11 +82,21 @@ function CharacterCard({
 
                 <button
                     type="button"
-                    onClick={handleDelete}
+                    onClick={handleDeleteClick}
                 >
                     Delete
                 </button>
             </div>
+
+            {isConfirmingDelete && (
+                <ConfirmDialog
+                    title={`Delete ${character.name}?`}
+                    message="This also deletes the character's inventory, equipment, classes, skills, proficiencies, and weapon masteries. This cannot be undone."
+                    confirmLabel="Delete Character"
+                    onConfirm={handleDeleteConfirm}
+                    onCancel={handleDeleteCancel}
+                />
+            )}
 
             {isEditing && (
                 <Modal>

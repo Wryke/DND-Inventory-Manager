@@ -56,6 +56,9 @@ import {
     getWeaponMasteries
 } from "./api/lookups"
 
+// Pages that only make sense with a selected character
+const characterPages = ["sheet", "inventory", "equipment"]
+
 function App() {
     
     // --- State ---
@@ -318,6 +321,11 @@ function App() {
 
             if (selectedCharacter?.character_id === characterId) {
                 handleSelectCharacter(null)
+
+                // The sheet, inventory, and equipment pages need a selected character
+                if (characterPages.includes(currentPage)) {
+                    setCurrentPage("characters")
+                }
             }
         }
         catch (error) {
@@ -537,7 +545,7 @@ function App() {
                         />
                     )}
 
-                    {currentPage === "inventory" && (
+                    {currentPage === "inventory" && selectedCharacter && (
                         <InventoryPage
                             selectedCharacter={selectedCharacter}
                             currentWeight={currentWeight}
@@ -549,7 +557,7 @@ function App() {
                         />
                     )}
 
-                    {currentPage === "equipment" && (
+                    {currentPage === "equipment" && selectedCharacter && (
                         <EquipmentPage
                             selectedCharacter={selectedCharacter}
                             currentWeight={currentWeight}
